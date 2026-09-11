@@ -31,6 +31,8 @@ export async function bill_parser_tool(input: {
   text?: string;
   filename?: string;
   aiInstance?: any;
+  imageBase64?: string;
+  mimeType?: string;
 }): Promise<BillParserResult> {
   const content = input.text || '';
   const filename = input.filename || 'uploaded_bill.pdf';
@@ -56,9 +58,22 @@ Return strict JSON with this schema:
   "raw_summary": "one sentence summary"
 }`;
 
+      let contents: any = prompt;
+      if (input.imageBase64 && input.mimeType) {
+        contents = [
+          prompt,
+          {
+            inlineData: {
+              data: input.imageBase64,
+              mimeType: input.mimeType,
+            },
+          },
+        ];
+      }
+
       const response = await input.aiInstance.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: prompt,
+        contents,
         config: { responseMimeType: 'application/json' },
       });
 
@@ -365,11 +380,32 @@ export function merchant_verification_tool(
 /**
  * 6. Currency Conversion Tool
  */
-export function currency_conversion_tool(
+export async function currency_conversion_tool(
   amount: number,
   fromCurrency: string,
   toCurrency: string = 'INR'
 ) {
+  try {
+    const res = await fetch(`https://api.exchangerate-api.com/v4/latest/${fromCurrency.toUpperCase()}`);
+    const data = await res.json();
+    const toRate = data.rates[toCurrency.toUpperCase()];
+    
+    if (toRate) {
+      const converted = amount * toRate;
+      return {
+        original_amount: amount,
+        from_currency: fromCurrency.toUpperCase(),
+        converted_amount: Math.round(converted * 100) / 100,
+        to_currency: toCurrency.toUpperCase(),
+        exchange_rate: Math.round(toRate * 1000) / 1000,
+        source: 'Live FX API (exchangerate-api.com)',
+      };
+    }
+  } catch (e) {
+    console.warn('[currency_conversion_tool] Live API failed, falling back to static rates.', e);
+  }
+
+  // Fallback
   const ratesToINR: Record<string, number> = {
     INR: 1.0,
     USD: 86.5,
@@ -389,6 +425,7 @@ export function currency_conversion_tool(
     converted_amount: Math.round(converted * 100) / 100,
     to_currency: toCurrency.toUpperCase(),
     exchange_rate: Math.round((fromRate / toRate) * 1000) / 1000,
+    source: 'Static Fallback Rates',
   };
 }
 

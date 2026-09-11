@@ -7,8 +7,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { initDatabase, dbHelpers, seedSyntheticData, DEFAULT_USER_ID } from "./server/db";
 import { runAgenticWorkflow } from "./server/agents";
-import { bill_parser_tool, setMerchantVerificationForceFail } from "./server/tools";
+import { bill_parser_tool, setMerchantVerificationForceFail, currency_conversion_tool } from "./server/tools";
 import { analyzeBillingDataDeterministic } from "./server/analyzer";
+import { setupChatRoute } from "./server/chat";
+import { watcher } from "./server/watcher";
 
 dotenv.config();
 
@@ -94,11 +96,26 @@ async function startServer() {
       let fileText = "";
       let filename = "uploaded_document.txt";
       let fileType = "text/plain";
+      let imageBase64: string | undefined;
 
       if (req.file) {
         filename = req.file.originalname;
         fileType = req.file.mimetype;
-        fileText = req.file.buffer.toString("utf-8");
+        if (fileType.includes("image")) {
+          imageBase64 = req.file.buffer.toString("base64");
+          fileText = "IMAGE_UPLOAD";
+        } else if (fileType === "application/pdf") {
+          try {
+            const pdfParse = require('pdf-parse');
+            const data = await pdfParse(req.file.buffer);
+            fileText = data.text;
+          } catch (e) {
+            console.error("PDF parse failed:", e);
+            fileText = "Failed to parse PDF.";
+          }
+        } else {
+          fileText = req.file.buffer.toString("utf-8");
+        }
       } else if (req.body.text || req.body.rawContent) {
         fileText = req.body.text || req.body.rawContent;
         filename = req.body.filename || "pasted_statement.txt";
@@ -111,6 +128,8 @@ async function startServer() {
         text: fileText,
         filename,
         aiInstance: ai,
+        imageBase64,
+        mimeType: imageBase64 ? fileType : undefined,
       });
 
       const billId = `bill_${crypto.randomUUID().slice(0, 8)}`;
@@ -241,6 +260,39 @@ async function startServer() {
   app.get("/api/agent/:run_id/events", (req, res) => {
     const events = dbHelpers.getAgentEvents(req.params.run_id);
     res.json({ success: true, count: events.length, events });
+  });
+
+  // Real-Time SSE Stream for Agent Workflow
+  app.get("/api/agent/stream/:id", (req, res) => {
+    const goalId = req.params.id;
+    const forceToolFailure = req.query.forceToolFailure === "true";
+    const userConstraintOverride = req.query.userConstraintOverride as string;
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+    });
+
+    const sendEvent = (data: any) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    runAgenticWorkflow(goalId, undefined, {
+      userId: DEFAULT_USER_ID,
+      forceToolFailure,
+      userConstraintOverride,
+      aiInstance: ai,
+      eventEmitter: (event) => sendEvent({ type: "agent_event", event }),
+    })
+      .then((runState) => {
+        sendEvent({ type: "workflow_complete", state: runState });
+        res.end();
+      })
+      .catch((err) => {
+        sendEvent({ type: "workflow_error", error: err.message });
+        res.end();
+      });
   });
 
   // 7. Consequential Action Approvals (Human-in-the-Loop)
@@ -389,7 +441,36 @@ async function startServer() {
     res.json({ success: true, message: "Synthetic dataset successfully reset." });
   });
 
-  // 10. Backward-Compatible /api/analyze Endpoint
+  // 10. Conversational Agent Memory Chat
+  app.use("/api/chat", setupChatRoute(ai));
+
+  // 11. Autonomous Watcher API
+  app.get("/api/watcher/status", (req, res) => {
+    res.json(watcher.getStatus());
+  });
+  
+  app.post("/api/watcher/start", (req, res) => {
+    watcher.start();
+    res.json(watcher.getStatus());
+  });
+
+  app.post("/api/watcher/stop", (req, res) => {
+    watcher.stop();
+    res.json(watcher.getStatus());
+  });
+
+  // 12. FX Tool Endpoint
+  app.post("/api/tools/fx", async (req, res) => {
+    try {
+      const { amount, fromCurrency, toCurrency } = req.body;
+      const result = await currency_conversion_tool(amount, fromCurrency, toCurrency);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 13. Backward-Compatible /api/analyze Endpoint
   app.post("/api/analyze", async (req, res) => {
     try {
       const { data, rawText } = req.body;
@@ -474,6 +555,8 @@ async function startServer() {
     });
   }
 
+  // Start Watcher and Server
+  watcher.start();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[BillGuard] Full-Stack Server running on port ${PORT}`);
   });

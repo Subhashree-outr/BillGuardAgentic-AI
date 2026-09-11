@@ -24,6 +24,7 @@ export interface DecisionTrace {
   tool_used?: string;
   tool_failure?: boolean;
   recovery_strategy?: string;
+  explanation_chain?: string[];
 }
 
 export interface Finding {

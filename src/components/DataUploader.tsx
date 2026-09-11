@@ -20,8 +20,41 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
   onSelectSample,
 }) => {
   const [showCustomEditor, setShowCustomEditor] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState('');
 
   const lineCount = rawData ? rawData.trim().split('\n').length : 0;
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadMessage('Extracting data with Gemini Vision...');
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await fetch('/api/bills/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        setUploadMessage(`Success! Extracted: ${data.extracted_summary}`);
+        onDataChange(rawData + '\n\n' + JSON.stringify(data.bill, null, 2));
+      } else {
+        setUploadMessage(`Error: ${data.error}`);
+      }
+    } catch (err: any) {
+      setUploadMessage(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+      // clear file input
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
@@ -53,6 +86,24 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+          <div className="relative">
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              disabled={isUploading}
+            />
+            <button
+              type="button"
+              disabled={isUploading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-emerald-400 hover:text-white bg-emerald-500/10 border border-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>{isUploading ? 'Uploading...' : 'Upload Bill (Image/PDF)'}</span>
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={() => setShowCustomEditor(!showCustomEditor)}
@@ -84,6 +135,12 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
           </button>
         </div>
       </div>
+      
+      {uploadMessage && (
+        <div className="text-xs text-blue-300 bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+          {uploadMessage}
+        </div>
+      )}
 
       {/* Collapsible Custom Statement Textarea */}
       {showCustomEditor && (

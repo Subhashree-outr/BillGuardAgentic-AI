@@ -19,6 +19,7 @@ import { SubscriptionsView } from './components/SubscriptionsView';
 import { AgentActivityView } from './components/AgentActivityView';
 import { GoalModeView } from './components/GoalModeView';
 import { HackathonDemosView } from './components/HackathonDemosView';
+import { ChatPanel } from './components/ChatPanel';
 import { SAMPLE_DATASETS } from './sampleData';
 import { BillGuardReport, Finding, ActionPlanItem } from './types';
 import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
@@ -247,6 +248,8 @@ export default function App() {
         onApprove={handleApproveAction}
         onRejectWithConstraint={handleRejectAction}
       />
+
+      <ChatPanel />
 
       <footer className="border-t border-[#27272A] bg-[#09090B] py-5 mt-10 text-center text-xs text-[#71717A]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">

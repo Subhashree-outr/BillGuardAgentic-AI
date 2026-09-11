@@ -7,6 +7,12 @@
 
 import crypto from 'node:crypto';
 import { dbHelpers, DEFAULT_USER_ID } from '../db';
+
+function logEvent(options: WorkflowOptions, event: Omit<AgentEvent, 'id' | 'timestamp'> & { id?: string, timestamp?: string }) {
+  const fullEvent = { ...event, id: event.id || `evt_${crypto.randomUUID().slice(0, 8)}`, timestamp: event.timestamp || new Date().toISOString() } as AgentEvent;
+  dbHelpers.logAgentEvent(fullEvent);
+  if (options.eventEmitter) options.eventEmitter(fullEvent);
+}
 import {
   AgentRunState,
   AgentEvent,
@@ -25,6 +31,7 @@ import {
 } from '../tools';
 
 export interface WorkflowOptions {
+  eventEmitter?: (event: AgentEvent) => void;
   userId?: string;
   forceToolFailure?: boolean;
   userConstraintOverride?: string;
@@ -41,7 +48,7 @@ export async function runBillAnalyzerAgent(
 ) {
   const bills = dbHelpers.getBills(state.user_id);
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -83,7 +90,7 @@ export async function runAnomalyDetectionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -107,11 +114,17 @@ export async function runAnomalyDetectionAgent(
       currency: 'INR',
       severity: 'high' as const,
       evidence: `Identical charge of ₹${dup.amount} billed twice within ${dup.timeGapMinutes} minutes. Transaction IDs: ${dup.tx1.id} and ${dup.tx2.id}.`,
+      explanation_chain: [
+        "Analyzed transaction ledger for duplicate amounts.",
+        `Found two transactions of ₹${dup.amount} at ${dup.merchant}.`,
+        `Checked timestamp gap: ${dup.timeGapMinutes} minutes apart.`,
+        "Concluded high likelihood of accidental double-swipe or double-billing."
+      ],
       confidence: 0.98,
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -136,11 +149,18 @@ export async function runAnomalyDetectionAgent(
       currency: 'INR',
       severity: 'medium' as const,
       evidence: hist.evidence,
+      explanation_chain: [
+        "Scanned active subscriptions.",
+        `Detected ${sub.merchant} recurring charge of ₹${sub.current_price}.`,
+        "Queried historical ledger for past 12 months.",
+        `Found previous baseline price was ₹${hist.previous_price}.`,
+        `Calculated ${hist.percentage_change}% increase, which exceeds normal inflation.`
+      ],
       confidence: 0.94,
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -164,11 +184,18 @@ export async function runAnomalyDetectionAgent(
       currency: 'INR',
       severity: 'high' as const,
       evidence: `Cloud bill surged to ₹3,450.00 driven by ₹2,073.73 in unattached orphan EBS volumes and forgotten snapshots. Historical average was ₹850.00.`,
+      explanation_chain: [
+        "Observed AWS Cloud Services bill total: ₹3,450.00.",
+        "Compared against 6-month moving average of ₹850.00.",
+        "Parsed detailed AWS billing invoice via Gemini Vision.",
+        "Identified 'EBS Volume (Unattached)' and 'Snapshots' accounting for ₹2,073.73.",
+        "Flagged as infrastructure waste anomaly."
+      ],
       confidence: 0.96,
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -193,7 +220,7 @@ export async function runSubscriptionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -216,11 +243,17 @@ export async function runSubscriptionAgent(
       currency: 'INR',
       severity: 'medium' as const,
       evidence: `Subscription active at ₹${sub.current_price}/mo but zero member check-ins or logins detected since ${sub.last_active_date} (>90 days idle).`,
+      explanation_chain: [
+        `Identified active recurring payment for ${sub.merchant} (₹${sub.current_price}/mo).`,
+        "Queried partner API for usage metrics.",
+        `Received last_active_date: ${sub.last_active_date}.`,
+        "Calculated >90 days of dormancy. Flagged as wasted spend."
+      ],
       confidence: 0.92,
     };
     state.detected_issues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -243,11 +276,17 @@ export async function runSubscriptionAgent(
       currency: 'INR',
       severity: 'low' as const,
       evidence: `Multiple redundant services detected in category "${red.groupName}": ${red.active_services.map(s => s.merchant).join(', ')}.`,
+      explanation_chain: [
+        "Clustered active subscriptions by service category.",
+        `Found ${red.active_services.length} active services in "${red.groupName}".`,
+        `Services: ${red.active_services.map(s => s.merchant).join(', ')}.`,
+        "Since they provide identical utilities, flagged one for cancellation to eliminate redundancy."
+      ],
       confidence: 0.90,
     };
     state.detected_issues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -269,7 +308,7 @@ export async function runInvestigationAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -290,7 +329,7 @@ export async function runInvestigationAgent(
       const result = merchant_verification_tool(issue.merchant, { forceFail: shouldForceFail });
       verifiedMerchants[issue.merchant] = result;
 
-      dbHelpers.logAgentEvent({
+      logEvent(options, {
         id: `evt_${crypto.randomUUID().slice(0, 8)}`,
         run_id: runId,
         timestamp: new Date().toISOString(),
@@ -310,7 +349,7 @@ export async function runInvestigationAgent(
         fallback_action_taken: 'Evaluated alternative data: Switch to local transaction history & public dispute templates.',
       });
 
-      dbHelpers.logAgentEvent({
+      logEvent(options, {
         id: `evt_${crypto.randomUUID().slice(0, 8)}`,
         run_id: runId,
         timestamp: new Date().toISOString(),
@@ -347,7 +386,7 @@ export async function runActionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -468,7 +507,7 @@ export async function runEvaluationAndReplanningAgent(
   const projected = calc.total_monthly_savings;
   const gap = target - projected;
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -503,7 +542,7 @@ export async function runEvaluationAndReplanningAgent(
     state.current_phase = 'ADAPT_REPLAN';
     state.status = 'replanning';
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -571,7 +610,7 @@ export async function runEvaluationAndReplanningAgent(
 
     dbHelpers.saveActions(state.actions, runId, state.goal_id);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -596,7 +635,7 @@ export async function runEvaluationAndReplanningAgent(
     achieved: state.evaluation.goal_achieved,
   };
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -683,7 +722,7 @@ export async function runAgenticWorkflow(
 
   dbHelpers.saveAgentRun(state);
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),

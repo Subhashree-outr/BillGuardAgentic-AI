@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Target, Play, RotateCcw, AlertCircle, CheckCircle2, ArrowRight, ShieldCheck, Zap, Sparkles, RefreshCw } from 'lucide-react';
+import { LiveAgentStream } from './LiveAgentStream';
 
 interface GoalModeViewProps {
   onRunComplete?: (result: any) => void;
@@ -19,29 +20,6 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
   const runGoal = async () => {
     setIsRunning(true);
     setRunResult(null);
-
-    try {
-      const res = await fetch('/api/agent/goals/goal_hackathon_demo/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          forceToolFailure: forceFailGateway,
-          userConstraintOverride: keepAppleMusic ? 'keep_apple_music' : undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.state) {
-        setRunResult(data.state);
-        if (onRunComplete) {
-          onRunComplete(data.state);
-        }
-      }
-    } catch (e) {
-      console.error('Goal execution error:', e);
-    } finally {
-      setIsRunning(false);
-    }
   };
 
   const phases = ['OBSERVE', 'PLAN', 'DECIDE', 'USE_TOOLS', 'EXECUTE', 'EVALUATE', 'ADAPT_REPLAN', 'OUTCOME'];
@@ -189,6 +167,26 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
           })}
         </div>
       </div>
+
+      {/* Live Agent Stream (Only shows when running) */}
+      {isRunning && !runResult && (
+        <div className="mt-6">
+          <LiveAgentStream
+            goalId="goal_hackathon_demo"
+            forceToolFailure={forceFailGateway}
+            userConstraintOverride={keepAppleMusic ? 'keep_apple_music' : undefined}
+            onComplete={(state) => {
+              setRunResult(state);
+              setIsRunning(false);
+              if (onRunComplete) onRunComplete(state);
+            }}
+            onError={(err) => {
+              console.error(err);
+              setIsRunning(false);
+            }}
+          />
+        </div>
+      )}
 
       {/* Results View */}
       {runResult && (
