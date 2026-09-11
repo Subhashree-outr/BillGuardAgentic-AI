@@ -7,6 +7,12 @@
 
 import crypto from 'node:crypto';
 import { dbHelpers, DEFAULT_USER_ID } from '../db';
+
+function logEvent(options: WorkflowOptions, event: Omit<AgentEvent, 'id' | 'timestamp'> & { id?: string, timestamp?: string }) {
+  const fullEvent = { ...event, id: event.id || `evt_${crypto.randomUUID().slice(0, 8)}`, timestamp: event.timestamp || new Date().toISOString() } as AgentEvent;
+  dbHelpers.logAgentEvent(fullEvent);
+  if (options.eventEmitter) options.eventEmitter(fullEvent);
+}
 import {
   AgentRunState,
   AgentEvent,
@@ -25,6 +31,7 @@ import {
 } from '../tools';
 
 export interface WorkflowOptions {
+  eventEmitter?: (event: AgentEvent) => void;
   userId?: string;
   forceToolFailure?: boolean;
   userConstraintOverride?: string;
@@ -41,7 +48,7 @@ export async function runBillAnalyzerAgent(
 ) {
   const bills = dbHelpers.getBills(state.user_id);
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -83,7 +90,7 @@ export async function runAnomalyDetectionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -111,7 +118,7 @@ export async function runAnomalyDetectionAgent(
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -140,7 +147,7 @@ export async function runAnomalyDetectionAgent(
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -168,7 +175,7 @@ export async function runAnomalyDetectionAgent(
     };
     detectedIssues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -193,7 +200,7 @@ export async function runSubscriptionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -220,7 +227,7 @@ export async function runSubscriptionAgent(
     };
     state.detected_issues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -247,7 +254,7 @@ export async function runSubscriptionAgent(
     };
     state.detected_issues.push(issue);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -269,7 +276,7 @@ export async function runInvestigationAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -290,7 +297,7 @@ export async function runInvestigationAgent(
       const result = merchant_verification_tool(issue.merchant, { forceFail: shouldForceFail });
       verifiedMerchants[issue.merchant] = result;
 
-      dbHelpers.logAgentEvent({
+      logEvent(options, {
         id: `evt_${crypto.randomUUID().slice(0, 8)}`,
         run_id: runId,
         timestamp: new Date().toISOString(),
@@ -310,7 +317,7 @@ export async function runInvestigationAgent(
         fallback_action_taken: 'Evaluated alternative data: Switch to local transaction history & public dispute templates.',
       });
 
-      dbHelpers.logAgentEvent({
+      logEvent(options, {
         id: `evt_${crypto.randomUUID().slice(0, 8)}`,
         run_id: runId,
         timestamp: new Date().toISOString(),
@@ -347,7 +354,7 @@ export async function runActionAgent(
   state: AgentRunState,
   options: WorkflowOptions
 ) {
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -468,7 +475,7 @@ export async function runEvaluationAndReplanningAgent(
   const projected = calc.total_monthly_savings;
   const gap = target - projected;
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -503,7 +510,7 @@ export async function runEvaluationAndReplanningAgent(
     state.current_phase = 'ADAPT_REPLAN';
     state.status = 'replanning';
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -571,7 +578,7 @@ export async function runEvaluationAndReplanningAgent(
 
     dbHelpers.saveActions(state.actions, runId, state.goal_id);
 
-    dbHelpers.logAgentEvent({
+    logEvent(options, {
       id: `evt_${crypto.randomUUID().slice(0, 8)}`,
       run_id: runId,
       timestamp: new Date().toISOString(),
@@ -596,7 +603,7 @@ export async function runEvaluationAndReplanningAgent(
     achieved: state.evaluation.goal_achieved,
   };
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),
@@ -683,7 +690,7 @@ export async function runAgenticWorkflow(
 
   dbHelpers.saveAgentRun(state);
 
-  dbHelpers.logAgentEvent({
+  logEvent(options, {
     id: `evt_${crypto.randomUUID().slice(0, 8)}`,
     run_id: runId,
     timestamp: new Date().toISOString(),

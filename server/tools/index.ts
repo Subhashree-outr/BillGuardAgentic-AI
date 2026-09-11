@@ -31,6 +31,8 @@ export async function bill_parser_tool(input: {
   text?: string;
   filename?: string;
   aiInstance?: any;
+  imageBase64?: string;
+  mimeType?: string;
 }): Promise<BillParserResult> {
   const content = input.text || '';
   const filename = input.filename || 'uploaded_bill.pdf';
@@ -56,9 +58,22 @@ Return strict JSON with this schema:
   "raw_summary": "one sentence summary"
 }`;
 
+      let contents: any = prompt;
+      if (input.imageBase64 && input.mimeType) {
+        contents = [
+          prompt,
+          {
+            inlineData: {
+              data: input.imageBase64,
+              mimeType: input.mimeType,
+            },
+          },
+        ];
+      }
+
       const response = await input.aiInstance.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: prompt,
+        contents,
         config: { responseMimeType: 'application/json' },
       });
 
