@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .bento-card {
+    background-color: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+}
