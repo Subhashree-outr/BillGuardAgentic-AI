@@ -10,6 +10,7 @@ import {
   Calendar,
   Sparkles,
 } from 'lucide-react';
+import { WatcherStatus } from './WatcherStatus';
 
 export type AppNavTab =
   | 'dashboard'
@@ -73,6 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               <span className="font-mono text-[11px]">{engine}</span>
             </div>
+
+            <WatcherStatus />
 
             <div className="px-2.5 py-1 bg-[#18181B] border border-[#27272A] rounded-lg text-xs text-[#A1A1AA] flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500" />

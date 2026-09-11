@@ -14,6 +14,7 @@ import {
   RotateCw,
   Sparkles,
 } from 'lucide-react';
+import { FXAlertBanner } from './FXAlertBanner';
 
 interface FindingsListProps {
   findings: Finding[];
@@ -235,6 +236,13 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
                       <div className="text-xs text-[#A1A1AA] leading-relaxed">
                         {finding.explanation}
                       </div>
+
+                      {/* FX Alert Banner (Agentic capability to live convert non-target currencies) */}
+                      {finding.currency && (
+                        <div className="mt-2 rounded-xl overflow-hidden border border-[#27272A]">
+                          <FXAlertBanner amount={typeof finding.amount === 'number' ? finding.amount : parseFloat(finding.amount)} originalCurrency={finding.currency} targetCurrency="INR" />
+                        </div>
+                      )}
 
                       {/* Evidence Box */}
                       {finding.evidence && (

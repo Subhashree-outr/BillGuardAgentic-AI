@@ -127,6 +127,7 @@ export interface AgentRunState {
     currency: string;
     severity: 'low' | 'medium' | 'high';
     evidence: string;
+    explanation_chain?: string[];
     confidence: number;
   }>;
   selected_tools: Array<{

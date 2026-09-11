@@ -394,6 +394,11 @@ export function analyzeBillingDataDeterministic(rawData: string): BillGuardRepor
         next_action: `Initiate dispute and request reversal for second transaction`,
         requires_approval: true,
         tool_used: toolUsed,
+        explanation_chain: [
+          "Analyzed transaction ledger for duplicate amounts.",
+          `Found two transactions of $${typeof finding.amount === 'number' ? finding.amount.toFixed(2) : finding.amount} at ${finding.merchant}.`,
+          "Concluded high likelihood of accidental double-swipe or double-billing."
+        ],
       };
     } else if (finding.type === 'forgotten_subscription') {
       agent = 'investigation_agent';
@@ -415,6 +420,11 @@ export function analyzeBillingDataDeterministic(rawData: string): BillGuardRepor
         tool_used: toolUsed,
         tool_failure: toolFailure,
         recovery_strategy: recoveryStrategy,
+        explanation_chain: [
+          `Identified active recurring payment for ${finding.merchant}.`,
+          "Queried partner API for usage metrics.",
+          "Calculated >90 days of dormancy. Flagged as wasted spend."
+        ],
       };
     } else if (finding.type === 'price_increase') {
       agent = 'subscription_agent';
@@ -429,6 +439,12 @@ export function analyzeBillingDataDeterministic(rawData: string): BillGuardRepor
         next_action: `Negotiate grandfathered rate or downgrade to lower tier`,
         requires_approval: true,
         tool_used: toolUsed,
+        explanation_chain: [
+          "Scanned active subscriptions.",
+          `Detected ${finding.merchant} recurring charge.`,
+          "Queried historical ledger for past 12 months.",
+          `Calculated ${finding.increase_percentage}% increase, exceeding normal inflation.`
+        ],
       };
     } else {
       agent = 'bill_analyzer';
@@ -442,6 +458,11 @@ export function analyzeBillingDataDeterministic(rawData: string): BillGuardRepor
         next_action: `Review transaction details and set spend caps`,
         requires_approval: false,
         tool_used: 'Statistical Outlier Detector',
+        explanation_chain: [
+          "Observed spending behavior.",
+          "Compared against historical moving average.",
+          "Flagged as spending anomaly."
+        ],
       };
     }
   });

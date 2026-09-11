@@ -7,9 +7,10 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { initDatabase, dbHelpers, seedSyntheticData, DEFAULT_USER_ID } from "./server/db";
 import { runAgenticWorkflow } from "./server/agents";
-import { bill_parser_tool, setMerchantVerificationForceFail } from "./server/tools";
+import { bill_parser_tool, setMerchantVerificationForceFail, currency_conversion_tool } from "./server/tools";
 import { analyzeBillingDataDeterministic } from "./server/analyzer";
 import { setupChatRoute } from "./server/chat";
+import { watcher } from "./server/watcher";
 
 dotenv.config();
 
@@ -443,7 +444,33 @@ async function startServer() {
   // 10. Conversational Agent Memory Chat
   app.use("/api/chat", setupChatRoute(ai));
 
-  // 11. Backward-Compatible /api/analyze Endpoint
+  // 11. Autonomous Watcher API
+  app.get("/api/watcher/status", (req, res) => {
+    res.json(watcher.getStatus());
+  });
+  
+  app.post("/api/watcher/start", (req, res) => {
+    watcher.start();
+    res.json(watcher.getStatus());
+  });
+
+  app.post("/api/watcher/stop", (req, res) => {
+    watcher.stop();
+    res.json(watcher.getStatus());
+  });
+
+  // 12. FX Tool Endpoint
+  app.post("/api/tools/fx", async (req, res) => {
+    try {
+      const { amount, fromCurrency, toCurrency } = req.body;
+      const result = await currency_conversion_tool(amount, fromCurrency, toCurrency);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 13. Backward-Compatible /api/analyze Endpoint
   app.post("/api/analyze", async (req, res) => {
     try {
       const { data, rawText } = req.body;
@@ -528,6 +555,8 @@ async function startServer() {
     });
   }
 
+  // Start Watcher and Server
+  watcher.start();
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[BillGuard] Full-Stack Server running on port ${PORT}`);
   });

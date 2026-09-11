@@ -104,6 +104,24 @@ export const DecisionTraceModal: React.FC<DecisionTraceModalProps> = ({
             </p>
           </div>
 
+          {/* Explanation Chain */}
+          {trace.explanation_chain && trace.explanation_chain.length > 0 && (
+            <div className="p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-2">
+              <div className="text-[11px] font-mono uppercase tracking-wider text-purple-400 font-bold flex items-center gap-1.5">
+                <Brain className="w-3.5 h-3.5" />
+                Explainability Chain
+              </div>
+              <div className="space-y-2 pl-2 border-l-2 border-[#27272A]">
+                {trace.explanation_chain.map((step, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <span className="text-xs text-[#71717A] font-mono mt-0.5">{idx + 1}.</span>
+                    <span className="text-xs text-[#FAFAFA]">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Confidence & Agent Attribution */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div className="p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-1">
