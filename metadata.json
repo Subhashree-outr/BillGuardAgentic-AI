@@ -1,0 +1,6 @@
+{
+  "name": "BillGuard",
+  "description": "Autonomous bill and subscription assistant that detects duplicate charges, price increases, forgotten subscriptions, unusual spending, upcoming renewals, and generates prioritized action plans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

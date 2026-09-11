@@ -1,0 +1,266 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { Header, AppNavTab } from './components/Header';
+import { AgentPipeline } from './components/AgentPipeline';
+import { DataUploader } from './components/DataUploader';
+import { SummaryMetrics } from './components/SummaryMetrics';
+import { FindingsList } from './components/FindingsList';
+import { ActionPlanView } from './components/ActionPlanView';
+import { JsonViewer } from './components/JsonViewer';
+import { DecisionTraceModal } from './components/DecisionTraceModal';
+import { HumanApprovalModal } from './components/HumanApprovalModal';
+import { BillsView } from './components/BillsView';
+import { TransactionsView } from './components/TransactionsView';
+import { SubscriptionsView } from './components/SubscriptionsView';
+import { AgentActivityView } from './components/AgentActivityView';
+import { GoalModeView } from './components/GoalModeView';
+import { HackathonDemosView } from './components/HackathonDemosView';
+import { SAMPLE_DATASETS } from './sampleData';
+import { BillGuardReport, Finding, ActionPlanItem } from './types';
+import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+
+export default function App() {
+  const [currentTab, setCurrentTab] = useState<AppNavTab>('dashboard');
+  const [selectedSampleId, setSelectedSampleId] = useState<string>(SAMPLE_DATASETS[0].id);
+  const [rawData, setRawData] = useState<string>(SAMPLE_DATASETS[0].content);
+  const [report, setReport] = useState<BillGuardReport | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [engine, setEngine] = useState<string>('gemini-3.8-flash');
+
+  const [approvedItemIds, setApprovedItemIds] = useState<Record<string, boolean>>({});
+
+  // Modals state
+  const [inspectingFinding, setInspectingFinding] = useState<Finding | null>(null);
+  const [approvingAction, setApprovingAction] = useState<ActionPlanItem | null>(null);
+
+  // Check health and model on mount
+  useEffect(() => {
+    fetch('/api/health')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.hasGeminiKey !== undefined) {
+          setEngine(data.hasGeminiKey ? 'gemini-3.8-flash' : 'rule-engine-billguard');
+        }
+      })
+      .catch(() => {
+        // Dev server booting
+      });
+  }, []);
+
+  const handleAnalyze = useCallback(
+    async (dataToAnalyze?: string) => {
+      const textToSend = dataToAnalyze !== undefined ? dataToAnalyze : rawData;
+      if (!textToSend.trim()) {
+        setError('Please provide or select billing data to analyze.');
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ data: textToSend }),
+        });
+
+        if (!response.ok) {
+          const errJson = await response.json().catch(() => ({}));
+          throw new Error(errJson.error || `Server responded with status ${response.status}`);
+        }
+
+        const resData = await response.json();
+        if (resData.data) {
+          const rep: BillGuardReport = resData.data;
+          setReport(rep);
+          if (resData.engine) {
+            setEngine(resData.engine);
+          }
+        } else {
+          throw new Error('No report returned from server');
+        }
+      } catch (err: any) {
+        console.error('Analysis failed:', err);
+        setError(err?.message || 'Failed to analyze billing data. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [rawData]
+  );
+
+  // Initial auto-run with default sample
+  useEffect(() => {
+    handleAnalyze(SAMPLE_DATASETS[0].content);
+  }, [handleAnalyze]);
+
+  const handleSelectSample = (sampleId: string) => {
+    const found = SAMPLE_DATASETS.find((s) => s.id === sampleId);
+    if (found) {
+      setSelectedSampleId(sampleId);
+      setRawData(found.content);
+      setApprovedItemIds({});
+      handleAnalyze(found.content);
+    }
+  };
+
+  // Human Approval Execution
+  const handleApproveAction = async (actionId: string, simulatedSaving: number) => {
+    setApprovedItemIds((prev) => ({ ...prev, [actionId]: true }));
+    try {
+      await fetch(`/api/actions/${actionId}/approve`, { method: 'POST' });
+    } catch (e) {
+      console.warn('Backend action approval logged locally:', e);
+    }
+  };
+
+  // Reject Action with Constraint
+  const handleRejectAction = async (merchantName: string, reason: string) => {
+    setApprovingAction(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#09090B] text-[#FAFAFA] flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      <Header
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        engine={engine}
+      />
+
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        {/* Error Alert */}
+        {error && (
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 flex items-start gap-3 text-red-300">
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-red-200">Analysis Incident</h4>
+              <p className="text-xs text-red-300/90 mt-0.5">{error}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleAnalyze()}
+              className="text-xs font-semibold text-white flex items-center gap-1.5 bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" /> Retry
+            </button>
+          </div>
+        )}
+
+        {/* Tab 1: Audit Dashboard */}
+        {currentTab === 'dashboard' && (
+          <div className="space-y-6">
+            {/* Input Section */}
+            <DataUploader
+              rawData={rawData}
+              onDataChange={(val) => {
+                setRawData(val);
+                setSelectedSampleId('');
+              }}
+              onAnalyze={() => handleAnalyze()}
+              isLoading={isLoading}
+              selectedSampleId={selectedSampleId}
+              onSelectSample={handleSelectSample}
+            />
+
+            {/* Agentic Execution Pipeline */}
+            <AgentPipeline logs={report?.agent_loop_logs} isLoading={isLoading} />
+
+            {/* Results Area */}
+            {report && (
+              <div className="space-y-5">
+                <SummaryMetrics summary={report.summary} userMessage={report.user_message} />
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                  <div className="lg:col-span-7">
+                    <FindingsList
+                      findings={report.findings || []}
+                      onInspectTrace={(finding) => setInspectingFinding(finding)}
+                    />
+                  </div>
+                  <div className="lg:col-span-5">
+                    <ActionPlanView
+                      actionPlan={report.action_plan || []}
+                      onReviewApproval={(item) => setApprovingAction(item)}
+                      approvedItemIds={approvedItemIds}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: AI Goal Mode */}
+        {currentTab === 'goal_mode' && (
+          <GoalModeView
+            onRunComplete={(res) => {
+              // Optionally refresh
+            }}
+          />
+        )}
+
+        {/* Tab 3: Agent Activity Timeline */}
+        {currentTab === 'agent_activity' && <AgentActivityView />}
+
+        {/* Tab 4: Bills & Invoices */}
+        {currentTab === 'bills' && <BillsView />}
+
+        {/* Tab 5: Transactions */}
+        {currentTab === 'transactions' && <TransactionsView />}
+
+        {/* Tab 6: Subscriptions */}
+        {currentTab === 'subscriptions' && <SubscriptionsView />}
+
+        {/* Tab 7: Hackathon Scenarios */}
+        {currentTab === 'demos' && <HackathonDemosView />}
+
+        {/* Tab 8: Technical JSON */}
+        {currentTab === 'json' && report && <JsonViewer report={report} />}
+      </main>
+
+      {/* Decision Trace Modal (Explainable AI) */}
+      <DecisionTraceModal
+        finding={inspectingFinding}
+        onClose={() => setInspectingFinding(null)}
+        onOpenApproval={(finding) => {
+          const match = report?.action_plan.find(
+            (a) => a.target_merchant === finding.merchant || a.action.includes(finding.merchant)
+          );
+          if (match) {
+            setApprovingAction(match);
+          }
+        }}
+      />
+
+      {/* Human-in-the-Loop Consequential Action Modal */}
+      <HumanApprovalModal
+        actionItem={approvingAction}
+        onClose={() => setApprovingAction(null)}
+        onApprove={handleApproveAction}
+        onRejectWithConstraint={handleRejectAction}
+      />
+
+      <footer className="border-t border-[#27272A] bg-[#09090B] py-5 mt-10 text-center text-xs text-[#71717A]">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            <span className="font-medium text-[#A1A1AA]">
+              BillGuard &bull; Agentic AI Financial Auditor
+            </span>
+          </div>
+          <p>
+            Autonomous Anomaly Detection &bull; Grounded Evidence &bull; Human-in-the-Loop Safety &bull; SQLite Persistence
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}

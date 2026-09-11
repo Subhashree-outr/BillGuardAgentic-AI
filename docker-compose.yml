@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
+
+  # Optional standalone Python FastAPI service
+  backend-python:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./billguard_python.db
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    profiles:
+      - python-fullstack
