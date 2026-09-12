@@ -49,30 +49,30 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="border-b border-[#27272A] bg-[#09090B]/95 backdrop-blur-md sticky top-0 z-30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl min-w-0 mx-auto px-3 sm:px-6 lg:px-8">
         {/* Top brand row */}
-        <div className="h-16 flex items-center justify-between border-b border-[#27272A]/50">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-sm">
+        <div className="min-h-16 flex flex-wrap items-center justify-between gap-y-3 py-3 border-b border-[#27272A]/50">
+          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+            <div className="w-9 h-9 bg-blue-600 rounded-xl flex shrink-0 items-center justify-center text-white shadow-sm">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#FAFAFA]">BillGuard</h1>
-                <span className="inline-flex items-center px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[10px] font-semibold">
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <h1 className="truncate text-base sm:text-lg font-bold tracking-tight text-[#FAFAFA]">BillGuard</h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-full text-[10px] font-semibold">
                   Autonomous Agentic AI
                 </span>
                 <span className="hidden md:inline-flex items-center px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-300 rounded-full text-[10px] font-medium">
                   SQLite &bull; REST API &bull; Gemini
                 </span>
               </div>
-              <p className="text-[#A1A1AA] text-xs">
+              <p className="hidden sm:block text-[#A1A1AA] text-xs truncate">
                 Real-Time Bill & Subscription Management System
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex max-w-full shrink-0 items-center gap-2 sm:gap-3">
             <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-xs font-medium">
               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
               <span className="font-mono text-[11px]">{engine}</span>
@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <WatcherStatus />
 
-            <div className="px-2.5 py-1 bg-[#18181B] border border-[#27272A] rounded-lg text-xs text-[#A1A1AA] flex items-center gap-1.5">
+            <div className="hidden sm:flex px-2.5 py-1 bg-[#18181B] border border-[#27272A] rounded-lg text-xs text-[#A1A1AA] items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               <span className="text-[11px] font-medium text-[#FAFAFA]">Synthetic Data Seeded</span>
             </div>
@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Navigation tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto py-2 scrollbar-none">
+        <div className="-mx-3 flex min-w-0 items-center gap-1 overflow-x-auto px-3 py-2 scrollbar-none sm:mx-0 sm:px-0">
           {tabs.map((tab) => {
             const isActive = currentTab === tab.id;
             return (
@@ -97,7 +97,7 @@ export const Header: React.FC<HeaderProps> = ({
                 id={`nav-tab-${tab.id}`}
                 type="button"
                 onClick={() => onSelectTab(tab.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                className={`inline-flex shrink-0 items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-[#A1A1AA] hover:text-[#FAFAFA] hover:bg-[#18181B]'

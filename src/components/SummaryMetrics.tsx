@@ -45,28 +45,28 @@ export const SummaryMetrics: React.FC<SummaryMetricsProps> = ({ summary, userMes
       )}
 
       {/* 4 Clean Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4">
+      <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-4">
           <div className="text-xs text-[#A1A1AA] font-medium mb-1">Monthly Recovery</div>
-          <div className="text-xl sm:text-2xl font-bold text-emerald-400">
+          <div className="text-lg sm:text-2xl font-bold text-emerald-400 break-words">
             ${potentialMonthly}
             <span className="text-xs text-[#A1A1AA] font-normal">/mo</span>
           </div>
           <div className="text-[11px] text-[#71717A] mt-1">Identified recurring relief</div>
         </div>
 
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-4">
           <div className="text-xs text-[#A1A1AA] font-medium mb-1">Annual Savings</div>
-          <div className="text-xl sm:text-2xl font-bold text-[#FAFAFA]">
+          <div className="text-lg sm:text-2xl font-bold text-[#FAFAFA] break-words">
             ${potentialAnnual}
             <span className="text-xs text-[#A1A1AA] font-normal">/yr</span>
           </div>
           <div className="text-[11px] text-[#71717A] mt-1">Projected annual reduction</div>
         </div>
 
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-4">
           <div className="text-xs text-[#A1A1AA] font-medium mb-1">Total Audited</div>
-          <div className="text-xl sm:text-2xl font-bold text-[#FAFAFA]">
+          <div className="text-lg sm:text-2xl font-bold text-[#FAFAFA] break-words">
             ${totalSpent}
           </div>
           <div className="text-[11px] text-[#71717A] mt-1">
@@ -74,7 +74,7 @@ export const SummaryMetrics: React.FC<SummaryMetricsProps> = ({ summary, userMes
           </div>
         </div>
 
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-4">
           <div className="text-xs text-[#A1A1AA] font-medium mb-1">Flagged Issues</div>
           <div className="text-xl sm:text-2xl font-bold text-amber-400">
             {totalIssues}

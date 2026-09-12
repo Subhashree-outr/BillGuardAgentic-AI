@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, CheckCircle2, Clock, AlertTriangle, RefreshCw, Cpu, Wrench, Shield, ArrowRight } from 'lucide-react';
+import { Activity, Cpu, Wrench } from 'lucide-react';
 
 interface AgentEvent {
   id: string;
@@ -90,13 +90,13 @@ export const AgentActivityView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-          <div>
-            <h3 className="text-sm font-bold text-[#FAFAFA] flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-400" />
-              Autonomous Multi-Agent Activity & Tool Execution Timeline
+    <div className="min-w-0 space-y-4 sm:space-y-6">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
+        <div className="flex min-w-0 flex-col gap-4 mb-5">
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-[#FAFAFA] flex min-w-0 items-start gap-2 leading-snug">
+              <Activity className="mt-0.5 w-4 h-4 shrink-0 text-blue-400" />
+              <span className="min-w-0 break-words">Autonomous Multi-Agent Activity & Tool Execution Timeline</span>
             </h3>
             <p className="text-xs text-[#71717A] mt-0.5">
               Live audit trail showing goal formulation, tool invocations, anomaly verdicts, and replanning iterations.
@@ -104,13 +104,13 @@ export const AgentActivityView: React.FC = () => {
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          <div className="-mx-3 flex min-w-0 max-w-[calc(100vw-1.5rem)] items-center gap-1.5 overflow-x-auto px-3 pb-1 scrollbar-none sm:mx-0 sm:max-w-full sm:px-0">
             {eventTypes.map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setFilterType(t)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg text-[11px] font-semibold leading-none whitespace-nowrap transition-all ${
                   filterType === t
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-[#09090B] text-[#71717A] hover:text-[#FAFAFA] border border-[#27272A]'
@@ -123,23 +123,24 @@ export const AgentActivityView: React.FC = () => {
         </div>
 
         {/* Timeline */}
-        <div className="relative border-l border-[#27272A] ml-4 space-y-6 pl-6 py-2">
+        <div className="relative border-l border-[#27272A] ml-3 sm:ml-4 space-y-5 sm:space-y-6 pl-5 sm:pl-6 py-2">
           {filteredEvents.map((evt, idx) => (
             <div key={evt.id || idx} className="relative group">
               {/* Dot marker */}
-              <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-[#18181B] ring-2 ring-blue-500/30 group-hover:scale-125 transition-transform" />
+              <div className="absolute -left-[27px] sm:-left-[31px] top-1.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-[#18181B] ring-2 ring-blue-500/30 group-hover:scale-125 transition-transform" />
 
-              <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-3.5 hover:border-[#3F3F46] transition-colors">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
-                  <div className="flex items-center gap-2">
+              <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-3.5 hover:border-[#3F3F46] transition-colors">
+                <div className="flex min-w-0 flex-col gap-2 mb-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
                     {getEventBadge(evt.event_type)}
-                    <span className="text-xs font-bold text-[#FAFAFA] flex items-center gap-1">
-                      <Cpu className="w-3 h-3 text-blue-400" />
-                      {evt.agent_name}
+                    <span className="min-w-0 text-xs font-bold text-[#FAFAFA] inline-flex items-center gap-1">
+                      <Cpu className="w-3 h-3 shrink-0 text-blue-400" />
+                      <span className="break-words">{evt.agent_name}</span>
                     </span>
                     {evt.tool_name && (
-                      <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1">
-                        <Wrench className="w-2.5 h-2.5" /> {evt.tool_name}
+                      <span className="min-w-0 max-w-full text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-flex items-center gap-1">
+                        <Wrench className="w-2.5 h-2.5 shrink-0" />
+                        <span className="truncate">{evt.tool_name}</span>
                       </span>
                     )}
                   </div>
@@ -149,7 +150,7 @@ export const AgentActivityView: React.FC = () => {
                   </span>
                 </div>
 
-                <p className="text-xs text-[#D4D4D8] leading-relaxed">{evt.summary}</p>
+                <p className="text-xs text-[#D4D4D8] leading-relaxed break-words">{evt.summary}</p>
               </div>
             </div>
           ))}

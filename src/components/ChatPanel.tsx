@@ -55,7 +55,8 @@ export function ChatPanel({ apiKey, onNotify }: ChatPanelProps) {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-full shadow-lg shadow-blue-600/30 transition-all hover:scale-105 z-40"
+        className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-blue-600 hover:bg-blue-500 text-white p-3.5 sm:p-4 rounded-full shadow-lg shadow-blue-600/30 transition-all hover:scale-105 z-40"
+        aria-label="Open BillGuard chat"
       >
         <MessageSquare className="w-6 h-6" />
       </button>
@@ -67,7 +68,7 @@ export function ChatPanel({ apiKey, onNotify }: ChatPanelProps) {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 w-95 max-w-[calc(100vw-3rem)] h-125 bg-[#121214] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden"
+            className="fixed bottom-20 left-3 right-3 sm:left-auto sm:bottom-24 sm:right-6 w-auto sm:w-[23.75rem] max-w-[calc(100vw-1.5rem)] h-[min(70vh,31.25rem)] sm:h-[31.25rem] bg-[#121214] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="bg-[#18181B] border-b border-[#27272A] px-4 py-3 flex items-center justify-between">
@@ -100,7 +101,7 @@ export function ChatPanel({ apiKey, onNotify }: ChatPanelProps) {
                     {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div
-                    className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                    className={`min-w-0 max-w-[80%] break-words rounded-xl px-3 py-2 text-sm ${
                       msg.role === 'user'
                         ? 'bg-emerald-600 text-white rounded-tr-sm'
                         : 'bg-[#27272A] text-[#FAFAFA] rounded-tl-sm'
@@ -133,7 +134,7 @@ export function ChatPanel({ apiKey, onNotify }: ChatPanelProps) {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   placeholder="Ask a question..."
-                  className="flex-1 bg-transparent px-3 py-2.5 text-sm text-[#FAFAFA] focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[#FAFAFA] focus:outline-none"
                 />
                 <button
                   onClick={handleSend}

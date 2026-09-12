@@ -124,7 +124,7 @@ export const BillsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Upload Box */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-5">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h3 className="text-sm font-bold text-[#FAFAFA] flex items-center gap-2">
@@ -194,9 +194,9 @@ export const BillsView: React.FC = () => {
       </div>
 
       {/* Bills Table */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex min-w-0 items-center gap-2">
             <h3 className="text-sm font-bold text-[#FAFAFA]">Audited Bills & Invoices</h3>
             <span className="text-[11px] bg-[#27272A] px-2 py-0.5 rounded-full text-[#A1A1AA]">
               {bills.length} Invoices
@@ -211,7 +211,7 @@ export const BillsView: React.FC = () => {
           </button>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-[#27272A] text-[#71717A] uppercase text-[10px] tracking-wider">
               <tr>
@@ -269,12 +269,44 @@ export const BillsView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        <div className="space-y-3 sm:hidden">
+          {bills.map((bill) => (
+            <div key={bill.id} className="rounded-xl border border-[#27272A] bg-[#09090B] p-3">
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-center gap-2 font-semibold text-[#FAFAFA]">
+                    <FileText className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                    <span className="truncate">{bill.merchant}</span>
+                  </div>
+                  <div className="mt-1 truncate text-[10px] text-[#71717A]">{bill.filename}</div>
+                </div>
+                <span className="shrink-0 font-semibold text-[#FAFAFA]">
+                  {bill.currency === 'USD' ? '$' : 'â‚¹'}{bill.total_amount.toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#A1A1AA]">
+                <span>{bill.category}</span>
+                <span className="text-right font-mono">{bill.bill_date}</span>
+                <span>Tax {bill.currency === 'USD' ? '$' : 'â‚¹'}{bill.tax.toFixed(2)}</span>
+                <span className="text-right">{bill.status === 'flagged' ? 'Flagged' : 'Processed'}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedBill(bill)}
+                className="mt-3 inline-flex w-full items-center justify-center gap-1 rounded-lg bg-blue-500/10 px-2.5 py-2 text-[11px] text-blue-400 transition-colors hover:text-blue-300"
+              >
+                <Eye className="w-3 h-3" /> View Line Items
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Bill Details Modal */}
       {selectedBill && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#18181B] border border-[#27272A] rounded-2xl max-w-lg w-full p-5 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="max-h-[90vh] overflow-y-auto bg-[#18181B] border border-[#27272A] rounded-2xl max-w-lg w-full p-4 sm:p-5 space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <h4 className="text-base font-bold text-[#FAFAFA]">{selectedBill.merchant}</h4>

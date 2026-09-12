@@ -70,7 +70,7 @@ export function WatcherStatus() {
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute top-full right-0 mt-2 w-[320px] bg-[#121214] border border-[#27272A] rounded-xl shadow-2xl z-50 overflow-hidden"
+            className="absolute top-full right-0 mt-2 w-[min(320px,calc(100vw-1.5rem))] max-w-[calc(100vw-1.5rem)] bg-[#121214] border border-[#27272A] rounded-xl shadow-2xl z-50 overflow-hidden"
           >
             <div className="p-3 border-b border-[#27272A] flex items-center justify-between bg-[#18181B]">
               <div className="flex items-center gap-2">

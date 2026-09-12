@@ -45,11 +45,11 @@ export function FXAlertBanner({ amount, originalCurrency, targetCurrency = 'INR'
       <motion.div
         initial={{ opacity: 0, height: 0 }}
         animate={{ opacity: 1, height: 'auto' }}
-        className="w-full bg-blue-500/10 border-t border-b border-blue-500/20 px-4 py-2 flex items-center justify-between"
+        className="w-full bg-blue-500/10 border-t border-b border-blue-500/20 px-3 sm:px-4 py-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
       >
-        <div className="flex items-center gap-2 text-xs font-medium text-blue-400">
+        <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-blue-400">
           <Globe className="w-4 h-4" />
-          <span>Foreign Currency Detected: {originalCurrency}</span>
+          <span className="truncate">Foreign Currency Detected: {originalCurrency}</span>
         </div>
 
         {loading ? (
@@ -58,8 +58,8 @@ export function FXAlertBanner({ amount, originalCurrency, targetCurrency = 'INR'
             Calculating live FX...
           </div>
         ) : fxData ? (
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5 bg-[#18181B] border border-[#27272A] px-2 py-1 rounded-md">
+          <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3 text-xs">
+            <div className="flex min-w-0 items-center gap-1.5 bg-[#18181B] border border-[#27272A] px-2 py-1 rounded-md">
               <span className="text-[#A1A1AA]">{fxData.original_amount} {fxData.from_currency}</span>
               <ArrowRightLeft className="w-3 h-3 text-[#71717A]" />
               <span className="text-white font-bold">{fxData.converted_amount} {fxData.to_currency}</span>

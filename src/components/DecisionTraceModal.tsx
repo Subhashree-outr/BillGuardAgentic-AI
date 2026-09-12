@@ -8,14 +8,11 @@ import { Finding } from '../types';
 import {
   Brain,
   X,
-  CheckCircle,
-  AlertTriangle,
   RotateCw,
   ShieldCheck,
   FileText,
   UserCheck,
   ArrowRight,
-  ExternalLink,
 } from 'lucide-react';
 
 interface DecisionTraceModalProps {
@@ -46,24 +43,24 @@ export const DecisionTraceModal: React.FC<DecisionTraceModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-[#18181B] border border-[#27272A] rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-6 text-[#FAFAFA] relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-5 sm:space-y-6 text-[#FAFAFA] relative max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="flex items-start justify-between gap-4 border-b border-[#27272A] pb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="w-10 h-10 shrink-0 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               <Brain className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-[#FAFAFA]">
+            <div className="min-w-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <h3 className="text-base font-bold text-[#FAFAFA] break-words">
                   Autonomous &quot;Why?&quot; Decision Trace
                 </h3>
                 <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   Audit Verified
                 </span>
               </div>
-              <p className="text-xs text-[#A1A1AA] mt-0.5">
+              <p className="text-xs text-[#A1A1AA] mt-0.5 break-words">
                 Explainable AI Trail for {finding.merchant} ({finding.title})
               </p>
             </div>
@@ -81,25 +78,25 @@ export const DecisionTraceModal: React.FC<DecisionTraceModalProps> = ({
         {/* Core Decision Trace Box */}
         <div className="space-y-4">
           {/* Decision */}
-          <div className="p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-1.5">
-            <div className="text-[11px] font-mono uppercase tracking-wider text-blue-400 font-bold flex items-center justify-between">
+          <div className="p-3 sm:p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-1.5">
+            <div className="text-[11px] font-mono uppercase tracking-wider text-blue-400 font-bold flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <span>Decision</span>
               <span className="text-[#A1A1AA] font-normal lowercase">
                 Evaluated by: {trace.agent_name}
               </span>
             </div>
-            <p className="text-sm font-semibold text-[#FAFAFA] leading-snug">
+            <p className="text-sm font-semibold text-[#FAFAFA] leading-snug break-words">
               {trace.decision}
             </p>
           </div>
 
           {/* Evidence */}
-          <div className="p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-1.5">
+          <div className="p-3 sm:p-4 rounded-2xl bg-[#09090B] border border-[#27272A] space-y-1.5">
             <div className="text-[11px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5" />
               Verified Evidence (Ledger Match)
             </div>
-            <p className="text-xs font-mono text-[#D4D4D8] bg-[#18181B] p-3 rounded-xl border border-[#27272A]">
+            <p className="text-xs font-mono text-[#D4D4D8] bg-[#18181B] p-3 rounded-xl border border-[#27272A] break-words">
               &quot;{trace.evidence}&quot;
             </p>
           </div>

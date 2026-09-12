@@ -46,11 +46,11 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
     : -1;
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       {/* Goal Configuration Box */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-6">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-          <div>
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold mb-2">
               <Sparkles className="w-3.5 h-3.5" /> Autonomous State-Based Agent Mode
             </div>
@@ -66,7 +66,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
             type="button"
             onClick={runGoal}
             disabled={isRunning}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20"
+            className="inline-flex w-full items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20 sm:w-auto"
           >
             {isRunning ? (
               <>
@@ -149,7 +149,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
       </div>
 
       {/* Autonomous State Machine Progress Tracker */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-6">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-6">
         <h4 className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-4 flex items-center gap-1.5">
           <Zap className="w-4 h-4 text-blue-400" />
           Autonomous Agentic Loop State Machine
@@ -162,7 +162,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
             return (
               <div
                 key={phase}
-                className={`p-3 rounded-xl border text-center transition-all ${
+                className={`min-w-0 p-2 sm:p-3 rounded-xl border text-center transition-all ${
                   isCurrent
                     ? 'bg-blue-600/20 border-blue-500 text-blue-400 shadow-md shadow-blue-500/10 animate-pulse'
                     : isDone
@@ -171,7 +171,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
                 }`}
               >
                 <div className="text-[10px] font-mono mb-1">STEP 0{idx + 1}</div>
-                <div className="text-xs font-bold tracking-tight">
+                <div className="text-[11px] sm:text-xs font-bold tracking-tight break-words">
                   {phase.replace('_', ' ')}
                 </div>
                 <div className="text-[10px] mt-1 text-[#71717A]">
@@ -205,7 +205,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
 
       {/* Results View */}
       {runResult && (
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-6 space-y-6">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-4 sm:p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#27272A] pb-4">
             <div>
               <div className="flex items-center gap-2">
@@ -229,18 +229,18 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
           </div>
 
           {/* Savings vs Target Gap Meter */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Target Objective</span>
               <p className="text-xl font-bold text-[#FAFAFA] mt-1">₹{runResult.evaluation.target_savings.toLocaleString()}</p>
               <span className="text-[10px] text-[#A1A1AA]">Monthly reduction goal</span>
             </div>
 
-            <div className="bg-[#09090B] border border-emerald-500/30 rounded-xl p-4">
+            <div className="min-w-0 bg-[#09090B] border border-emerald-500/30 rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-emerald-400 uppercase font-bold tracking-wider flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Project Savings Identified
               </span>
-              <p className="text-xl font-bold text-emerald-400 mt-1">
+              <p className="text-lg sm:text-xl font-bold text-emerald-400 mt-1 break-words">
                 ₹{runResult.evaluation.projected_savings.toLocaleString()}/mo
               </p>
               <span className="text-[10px] text-emerald-400/80">
@@ -248,9 +248,9 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
               </span>
             </div>
 
-            <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4">
+            <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Goal Achievement Status</span>
-              <p className="text-xl font-bold text-[#FAFAFA] mt-1">
+              <p className="text-lg sm:text-xl font-bold text-[#FAFAFA] mt-1">
                 {runResult.evaluation.goal_achieved ? 'Target Met & Exceeded' : 'Gap Detected'}
               </p>
               <span className="text-[10px] text-[#A1A1AA]">{runResult.evaluation.reason}</span>
@@ -284,7 +284,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
               <h5 className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3">Candidate plans</h5>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {runResult.candidate_plans.map((plan: any) => (
-                  <div key={plan.id} className={`bg-[#09090B] border rounded-xl p-4 ${plan.recommended ? 'border-emerald-500/50' : 'border-[#27272A]'}`}>
+                  <div key={plan.id} className={`min-w-0 bg-[#09090B] border rounded-xl p-3 sm:p-4 ${plan.recommended ? 'border-emerald-500/50' : 'border-[#27272A]'}`}>
                     <div className="flex justify-between gap-2"><span className="text-xs font-bold text-[#FAFAFA]">{plan.name}</span>{plan.recommended && <span className="text-[10px] text-emerald-400">Recommended</span>}</div>
                     <p className="text-[11px] text-[#A1A1AA] mt-1">{plan.description}</p>
                     <p className="text-sm font-bold text-emerald-400 mt-3">₹{plan.projected_monthly_savings.toFixed(2)}/mo</p>
@@ -305,11 +305,11 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
               {runResult.actions.map((act: any) => (
                 <div
                   key={act.id}
-                  className="bg-[#09090B] border border-[#27272A] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#FAFAFA]">{act.target_merchant}</span>
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
+                      <span className="text-xs font-bold text-[#FAFAFA] break-words">{act.target_merchant}</span>
                       <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
                         {act.action_type.replace('_', ' ')}
                       </span>
@@ -319,7 +319,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
                     <p className="text-xs text-[#A1A1AA] mt-1">{act.description}</p>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
                     <div className="text-right">
                       <span className="text-[10px] text-[#71717A] block">Monthly Relief</span>
                       <span className="text-xs font-bold text-emerald-400">
