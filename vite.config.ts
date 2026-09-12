@@ -4,8 +4,13 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  const isGitHubPages = process.env.GITHUB_ACTIONS === 'true';
+  const repository = process.env.GITHUB_REPOSITORY?.split('/')[1] || 'BillGuardAgentic-AI';
+  const isUserSite = repository.endsWith('.github.io');
+
   return {
     plugins: [react(), tailwindcss()],
+    base: isGitHubPages && !isUserSite ? `/${repository}/` : '/',
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

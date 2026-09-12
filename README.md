@@ -20,6 +20,62 @@ Typical findings include:
 
 BillGuard creates recommendations such as dispute a charge, cancel a subscription, downgrade a plan, or set a budget cap. It does not automatically cancel services, request refunds, or move money.
 
+## Screenshots
+
+### Dashboard
+
+![BillGuard dashboard](screenshots/dashboard.png)
+
+The main audit view with billing input, agent pipeline, summary metrics, findings, and recommended actions.
+
+### Bills and Invoices
+
+![Bills and invoices](screenshots/bills.png)
+
+Uploaded bill records and structured extraction results.
+
+### Transactions
+
+![Transactions](screenshots/transactions%20log.png)
+
+Transaction ledger used for duplicate-charge and spending analysis.
+
+### Subscriptions
+
+![Subscriptions](screenshots/subscriptions%20log.png)
+
+Recurring services, dormant subscriptions, price increases, and overlapping plans.
+
+### AI Goal Mode
+
+![AI Goal Mode](screenshots/ai%20goal%20mode.png)
+
+Goal-driven agent execution with savings targets, constraints, and approval-gated actions.
+
+### Agent Activity
+
+![Agent activity](screenshots/agent%20activity%20log.png)
+
+Persisted agent events, tool calls, decisions, fallback handling, and replanning.
+
+### Demo Scenarios
+
+![Demo scenarios](screenshots/demo%20scenarios.png)
+
+Hackathon scenarios for anomaly detection, tool failure recovery, constraints, and replanning.
+
+### Session-only API Key Settings
+
+![Session-only API key settings](screenshots/session-only%20api%20key%20setup.png)
+
+Bring-your-own-key settings with masked status, connection testing, and removal controls.
+
+### Session Key and Chat
+
+![Session-only API key and chatbot](screenshots/session-only%20api%20key%20%2B%20chatbot.png)
+
+Chat using a session-only Gemini key without storing the credential in the application database.
+
 ## Technology
 
 | Area | Technology |
@@ -100,6 +156,35 @@ npm run start
 
 The build creates the Vite frontend and bundles the Express server into `dist/server.cjs`.
 
+### GitHub Pages deployment
+
+GitHub Pages serves static files only. The repository includes `.github/workflows/deploy-pages.yml`, which runs `npm ci`, builds only the Vite frontend, and deploys `dist/` whenever `main` changes. Vite automatically uses `/<repository-name>/` as the Pages base path, so the browser loads built assets instead of requesting `/src/main.tsx`.
+
+Enable **Settings > Pages > Source: GitHub Actions** in the repository. The static Pages deployment cannot run Express routes such as `/api/chat`, `/api/analyze`, uploads, SQLite, the watcher, or agent execution. Use `npm run dev` or a Node deployment for those backend features.
+
+### User-provided Gemini keys
+
+The Settings tab supports a session-only Bring Your Own Key flow when running against the Node backend:
+
+- The key is held in React memory only; it is not written to `localStorage`, SQLite, GitHub, analytics, or logs.
+- Requests send it only in the `X-Gemini-API-Key` header to the configured backend.
+- The Remove Key control clears it from the browser session.
+- GitHub Pages disables key entry because a static public site cannot protect a browser-visible credential.
+- Users should revoke keys from Google AI Studio if they suspect exposure.
+
+This is not a claim that a browser-held key is invisible to its owner or browser extensions. It prevents BillGuard from storing the key by default.
+
+For production, set `NODE_ENV=production` and optionally configure `PORT`:
+
+```env
+NODE_ENV=production
+PORT=3000
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+The server adds basic security headers, disables Express fingerprinting, limits request timeouts, returns generic internal errors, and closes the watcher/database during `SIGINT` or `SIGTERM` shutdown. Put TLS termination, authentication, rate limiting, secret management, and process supervision in the deployment platform or reverse proxy for a real public deployment.
+
 ### Available scripts
 
 | Command | Purpose |
@@ -139,6 +224,9 @@ It currently reads local bill records and logs whether statements exist. It does
 | `GET /api/watcher/status` | Read watcher state and logs |
 | `POST /api/watcher/start` | Start the watcher if stopped |
 | `POST /api/watcher/stop` | Stop the watcher |
+| `POST /api/watcher/events` | Submit a simulated financial event and trigger an approval-gated agent run |
+
+Supported event types are `NEW_TRANSACTION`, `NEW_BILL`, `PRICE_CHANGE`, `RENEWAL_APPROACHING`, `SPENDING_SPIKE`, and `USER_CONSTRAINT_CHANGED`. This is a local event simulator for demonstrations; it is not a bank or vendor webhook integration.
 
 ## User Features
 
@@ -180,7 +268,7 @@ Supported file types include PDF, PNG, JPG/JPEG, TXT, and CSV depending on the u
 
 ## Agents
 
-The main workflow is implemented in `server/agents/index.ts`. The supervisor and registry are in `server/agents/supervisor.ts` and `server/agents/registry.ts`.
+The workflow coordinator is `server/agents/index.ts`. Each agent has its own module, while shared event and type contracts live in `server/agents/events.ts` and `server/agents/contracts.ts`.
 
 | Agent | Main responsibility | Main tools or state |
 | --- | --- | --- |
@@ -192,6 +280,22 @@ The main workflow is implemented in `server/agents/index.ts`. The supervisor and
 | Action Agent | Create prioritized proposed actions and approval checkpoints | `savings_calculator_tool`, SQLite actions |
 | Evaluation Agent | Compare projected savings with the user's target | `savings_calculator_tool`, evaluation state |
 | Replanning Agent | Expand or change the plan when the target is missed or a constraint changes | `budget_analysis_tool`, action state |
+
+### Agent module layout
+
+| File | Ownership |
+| --- | --- |
+| `server/agents/index.ts` | Thin workflow coordinator and state lifecycle |
+| `server/agents/supervisor.ts` | Goal-directed tool selection and bounded ReAct loop |
+| `server/agents/registry.ts` | Read-only investigation capability registry |
+| `server/agents/billAnalyzerAgent.ts` | Bill observations |
+| `server/agents/anomalyAgent.ts` | Duplicate, price, and spending anomaly findings |
+| `server/agents/subscriptionAgent.ts` | Dormancy and overlapping subscription findings |
+| `server/agents/investigationAgent.ts` | Merchant verification and fallback recovery |
+| `server/agents/actionAgent.ts` | Constraint-aware approval-required action proposals |
+| `server/agents/simulation.ts` | Risk, service-impact, reversibility, and candidate-plan simulation |
+| `server/agents/evaluationAgent.ts` | Goal/savings evaluation |
+| `server/agents/replanningAgent.ts` | Additional opportunity search and plan expansion |
 
 The run state stores the goal, constraints, observations, reasoning trace, selected tools, tool history, findings, evidence, actions, errors, fallback actions, savings evaluation, replanning status, and final outcome.
 
@@ -223,6 +327,21 @@ These are read-only capabilities that the Supervisor Agent can select dynamicall
 | `setMerchantVerificationForceFail` | Enables/disables simulated verification failure | In-memory demo flag |
 
 Gemini may interpret documents or select investigation tools, but it is not trusted to calculate savings or authorize actions.
+
+### Implemented planning features
+
+- Constraint-aware action filtering, including work-related service protection.
+- Low-confidence work-related findings can create a pending `ASK_USER` question instead of an automatic cancellation proposal.
+- Candidate Conservative, Balanced, and Maximum Savings plans are generated and scored by projected savings and risk.
+- Every proposed action includes a simulation with monthly savings, annual savings, service impact, reversibility, and risk.
+- Tool failures are recorded in the run state and the supervisor continues with fallback selection.
+
+To answer a pending agent question:
+
+```text
+POST /api/agent/:run_id/questions/:questionId/answer
+{ "answer": "Keep it" }
+```
 
 ## Agent Workflow
 
@@ -306,6 +425,10 @@ The active Node application stores data in `billguard.db` in the repository root
 
 The repository also contains an optional Python FastAPI implementation under `/backend`. It uses SQLAlchemy and `billguard_python.db`, but the normal `npm run dev` flow uses the Node/Express backend and `billguard.db`.
 
+## Repository Cleanup Policy
+
+The active application is the Node/Express server in `server.ts` plus the React frontend in `src/`. The optional `/backend` implementation is retained for reference or a future Python deployment. `dist/`, `node_modules/`, local `.db` files, and `.env.*` files are generated or machine-specific and are ignored by Git. npm's `package-lock.json` is retained for reproducible installs; Bun's unused `bun.lock` was removed.
+
 ## Current Limitations
 
 - Authentication and tokens are mock local-development behavior.
@@ -325,5 +448,7 @@ The repository also contains an optional Python FastAPI implementation under `/b
 npm test
 npm run lint
 ```
+
+If TypeScript reports missing React or JSX declarations, run `npm install` again. The required `@types/react` and `@types/react-dom` packages are development dependencies and must be installed before `npm run lint` or `npm run build`.
 
 The test suite covers bill parsing, duplicate detection, dormant subscriptions, historical price changes, simulated tool failure, savings calculations, human approval, supervisor registry execution, and end-to-end replanning.

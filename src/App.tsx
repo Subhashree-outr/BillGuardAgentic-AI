@@ -20,9 +20,10 @@ import { AgentActivityView } from './components/AgentActivityView';
 import { GoalModeView } from './components/GoalModeView';
 import { HackathonDemosView } from './components/HackathonDemosView';
 import { ChatPanel } from './components/ChatPanel';
+import { SettingsView } from './components/SettingsView';
 import { SAMPLE_DATASETS } from './sampleData';
 import { BillGuardReport, Finding, ActionPlanItem } from './types';
-import { AlertCircle, RefreshCw, Sparkles } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<AppNavTab>('dashboard');
@@ -32,6 +33,8 @@ export default function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [engine, setEngine] = useState<string>('gemini-2.5-flash-lite');
+  const [sessionApiKey, setSessionApiKey] = useState('');
+  const [notice, setNotice] = useState<{ message: string; tone: 'info' | 'success' | 'warning' | 'error' } | null>(null);
 
   const [approvedItemIds, setApprovedItemIds] = useState<Record<string, boolean>>({});
 
@@ -53,6 +56,11 @@ export default function App() {
       });
   }, []);
 
+  useEffect(() => {
+    if (window.location.hostname.endsWith('github.io')) setNotice({ message: 'Gemini is disabled on static GitHub Pages. Deterministic auditing remains available.', tone: 'warning' });
+    else if (!sessionApiKey) setNotice({ message: 'No session Gemini key configured. Deterministic auditing remains available.', tone: 'warning' });
+  }, [sessionApiKey]);
+
   const handleAnalyze = useCallback(
     async (dataToAnalyze?: string) => {
       const textToSend = dataToAnalyze !== undefined ? dataToAnalyze : rawData;
@@ -67,9 +75,7 @@ export default function App() {
       try {
         const response = await fetch('/api/analyze', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json', ...(sessionApiKey ? { 'X-Gemini-API-Key': sessionApiKey } : {}) },
           body: JSON.stringify({ data: textToSend }),
         });
 
@@ -95,7 +101,7 @@ export default function App() {
         setIsLoading(false);
       }
     },
-    [rawData]
+    [rawData, sessionApiKey]
   );
 
   // Initial auto-run with default sample
@@ -154,6 +160,7 @@ export default function App() {
             </button>
           </div>
         )}
+        {notice && <div className={`rounded-xl p-3 text-xs border ${notice.tone === 'warning' ? 'bg-amber-500/10 border-amber-500/30 text-amber-200' : notice.tone === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-200' : 'bg-blue-500/10 border-blue-500/30 text-blue-200'}`} role="status">{notice.message}<button type="button" onClick={() => setNotice(null)} className="ml-3 underline">Dismiss</button></div>}
 
         {/* Tab 1: Audit Dashboard */}
         {currentTab === 'dashboard' && (
@@ -169,6 +176,7 @@ export default function App() {
               isLoading={isLoading}
               selectedSampleId={selectedSampleId}
               onSelectSample={handleSelectSample}
+              apiKey={sessionApiKey}
             />
 
             {/* Agentic Execution Pipeline */}
@@ -225,6 +233,7 @@ export default function App() {
 
         {/* Tab 8: Technical JSON */}
         {currentTab === 'json' && report && <JsonViewer report={report} />}
+        {currentTab === 'settings' && <SettingsView apiKey={sessionApiKey} onApiKeyChange={setSessionApiKey} onNotify={(message, tone = 'info') => setNotice({ message, tone })} />}
       </main>
 
       {/* Decision Trace Modal (Explainable AI) */}
@@ -249,7 +258,7 @@ export default function App() {
         onRejectWithConstraint={handleRejectAction}
       />
 
-      <ChatPanel />
+      <ChatPanel apiKey={sessionApiKey} onNotify={(message) => setNotice({ message, tone: 'warning' })} />
 
       <footer className="border-t border-[#27272A] bg-[#09090B] py-5 mt-10 text-center text-xs text-[#71717A]">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">

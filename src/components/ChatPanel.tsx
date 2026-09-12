@@ -2,7 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, User, Bot, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export function ChatPanel() {
+interface ChatPanelProps {
+  apiKey?: string;
+  onNotify?: (message: string) => void;
+}
+
+export function ChatPanel({ apiKey, onNotify }: ChatPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'model'; text: string }[]>([]);
   const [input, setInput] = useState('');
@@ -26,13 +31,18 @@ export function ChatPanel() {
     setIsLoading(true);
 
     try {
+      if (window.location.hostname.endsWith('github.io')) {
+        setMessages((prev) => [...prev, { role: 'model', text: 'Chat requires the BillGuard Node backend and is not available on static GitHub Pages. Run the app locally or use the backend deployment.' }]);
+        return;
+      }
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(apiKey ? { 'X-Gemini-API-Key': apiKey } : {}) },
         body: JSON.stringify({ message: userMessage, sessionId: 'default_session' }),
       });
       const data = await res.json();
-      setMessages((prev) => [...prev, { role: 'model', text: data.reply || data.error }]);
+      setMessages((prev) => [...prev, { role: 'model', text: data.reply || data.error || 'The chat service returned no response.' }]);
+      if (data.provider_error) onNotify?.(data.reply || 'Gemini provider error.');
     } catch (e: any) {
       setMessages((prev) => [...prev, { role: 'model', text: "Sorry, I'm having trouble connecting right now." }]);
     } finally {
@@ -57,7 +67,7 @@ export function ChatPanel() {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 w-[380px] max-w-[calc(100vw-3rem)] h-[500px] bg-[#121214] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden"
+            className="fixed bottom-24 right-6 w-95 max-w-[calc(100vw-3rem)] h-125 bg-[#121214] border border-[#27272A] rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden"
           >
             {/* Header */}
             <div className="bg-[#18181B] border-b border-[#27272A] px-4 py-3 flex items-center justify-between">

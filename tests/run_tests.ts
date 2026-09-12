@@ -130,7 +130,13 @@ async function runTests() {
   assert(workflowState.reasoning_trace.length > 0, 'Supervisor recorded explicit tool-selection reasoning');
   assert(workflowState.tool_history.length > 0, 'Supervisor executed tools through the registry');
   assert(workflowState.selected_tools.some(tool => tool.status === 'succeeded'), 'Registry tool call completed successfully');
-  assert(workflowState.replanning_status.is_replanning === true, 'Replanning Agent was autonomously triggered when initial plan < ₹5,000');
+  assert(workflowState.candidate_plans.length === 3, 'Generated conservative, balanced, and maximum candidate plans');
+  assert(workflowState.actions.every(action => action.execution_status === 'simulated' && !!action.simulation_result), 'Actions include simulation results before approval');
+  assert(workflowState.actions.every(action => ['low', 'medium', 'high'].includes(action.risk || '')), 'Actions include risk classification');
+  assert(
+    workflowState.replanning_status.is_replanning === true || workflowState.evaluation.projected_savings >= workflowState.evaluation.target_savings,
+    'Agent either replanned when savings were below target or correctly skipped replanning after achieving the target'
+  );
   assert(workflowState.evaluation.projected_savings >= 5000, `Achieved target savings (₹${workflowState.evaluation.projected_savings} >= ₹5,000)`);
   assert(workflowState.status === 'waiting_for_approval', 'Consequential actions safely paused in waiting_for_approval state');
 

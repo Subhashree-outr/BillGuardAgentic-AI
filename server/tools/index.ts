@@ -110,15 +110,16 @@ Return strict JSON with this schema:
       ? 'Entertainment'
       : 'General';
   const moneyPattern = /(?:₹|\$|inr|usd)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/ig;
+  const lineMoneyPattern = /(?:₹|\$|inr|usd)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i;
   const amounts = [...content.matchAll(moneyPattern)]
     .map(match => Number(match[1].replace(/,/g, '')))
     .filter(amount => Number.isFinite(amount) && amount > 0);
   const totalLine = lines.find(line => /grand total|total amount|amount due|balance due|total:/i.test(line));
-  const totalMatch = totalLine?.match(moneyPattern);
+  const totalMatch = totalLine?.match(lineMoneyPattern);
   const totalAmount = totalMatch ? Number(totalMatch[1].replace(/,/g, '')) : (amounts.length ? Math.max(...amounts) : 0);
   const lineItems: BillParserResult['line_items'] = lines
     .map(line => {
-      const match = line.match(moneyPattern);
+      const match = line.match(lineMoneyPattern);
       if (!match || /total|tax|subtotal|balance due/i.test(line)) return null;
       const amount = Number(match[1].replace(/,/g, ''));
       const description = line.replace(match[0], '').replace(/[:=-]\s*$/, '').trim();
@@ -258,6 +259,7 @@ export function historical_comparison_tool(
       message: 'No previous baseline found for this merchant.',
       percentage_change: 0,
       baseline_amount: currentAmount,
+      is_price_hike: false,
     };
   }
 

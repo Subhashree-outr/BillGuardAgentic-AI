@@ -1,5 +1,8 @@
 import { AgentRunState } from '../types';
 import { defaultToolContext, describeAgentTools, getAgentTool } from './registry';
+import { dbHelpers } from '../db';
+import { WorkflowOptions } from './contracts';
+import { logAgentEvent } from './events';
 import { getGeminiModel } from '../gemini';
 
 interface SupervisorChoice {
@@ -79,4 +82,38 @@ export async function executeSupervisedTool(
     ? `${tool.name} returned ${result.length} records.`
     : `${tool.name} completed with structured evidence.`;
   return { result, summary };
+}
+
+export async function runSupervisorLoop(runId: string, state: AgentRunState, options: WorkflowOptions) {
+  const maxIterations = 6;
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    const choice = await chooseNextTool(state, options.aiInstance);
+    if (!choice) {
+      state.next_action = undefined;
+      logAgentEvent(options, { run_id: runId, event_type: 'decision', agent_name: 'Supervisor Agent', status: 'success', summary: 'Supervisor determined that available evidence is sufficient.', details_json: { iteration, tool_history: state.tool_history } });
+      return;
+    }
+    state.next_action = choice;
+    state.reasoning_trace.push({ iteration, observation: `Evidence available: ${state.observations.length} observations and ${state.tool_history.length} completed tools.`, decision: `Select ${choice.tool}`, selected_tool: choice.tool, rationale: choice.rationale, confidence: choice.confidence, timestamp: new Date().toISOString() });
+    const selectedTool = { tool: choice.tool, input: { user_id: state.user_id }, status: 'planned' as const };
+    state.selected_tools.push(selectedTool);
+    logAgentEvent(options, { run_id: runId, event_type: 'decision', agent_name: 'Supervisor Agent', tool_name: choice.tool, status: 'info', summary: `Selected ${choice.tool}: ${choice.rationale}`, details_json: { iteration, confidence: choice.confidence } });
+    (selectedTool as { status: 'planned' | 'called' | 'succeeded' | 'failed' }).status = 'called';
+    try {
+      const execution = await executeSupervisedTool(state, choice);
+      (selectedTool as { status: 'planned' | 'called' | 'succeeded' | 'failed' }).status = 'succeeded';
+      state.tool_history.push({ tool: choice.tool, status: 'succeeded', summary: execution.summary, timestamp: new Date().toISOString() });
+      state.observations.push({ category: choice.tool.replace(/^find_|^inspect_|^analyze_/, '').replace(/_anomalies|_charges/, ''), summary: execution.summary, data: execution.result, timestamp: new Date().toISOString() });
+      logAgentEvent(options, { run_id: runId, event_type: 'tool_result', agent_name: 'Supervisor Agent', tool_name: choice.tool, status: 'success', summary: execution.summary });
+    } catch (error: any) {
+      (selectedTool as { status: 'planned' | 'called' | 'succeeded' | 'failed'; fallback_used?: boolean }).status = 'failed';
+      (selectedTool as { status: 'planned' | 'called' | 'succeeded' | 'failed'; fallback_used?: boolean }).fallback_used = true;
+      state.tool_history.push({ tool: choice.tool, status: 'failed', summary: error.message || 'Tool execution failed.', timestamp: new Date().toISOString() });
+      state.errors.push({ timestamp: new Date().toISOString(), tool_or_agent: choice.tool, error_message: error.message || 'Tool execution failed.', fallback_action_taken: 'Supervisor recorded the failure and continued with another capability.' });
+      logAgentEvent(options, { run_id: runId, event_type: 'error', agent_name: 'Supervisor Agent', tool_name: choice.tool, status: 'error', summary: `${choice.tool} failed; supervisor continued with fallback selection.`, details_json: { error: error.message } });
+    }
+    dbHelpers.saveAgentRun(state);
+  }
+  state.next_action = undefined;
+  logAgentEvent(options, { run_id: runId, event_type: 'decision', agent_name: 'Supervisor Agent', status: 'warning', summary: `Supervisor stopped after ${maxIterations} bounded iterations.` });
 }

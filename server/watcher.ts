@@ -6,6 +6,8 @@ export interface WatcherStatus {
   logs: string[];
 }
 
+export type WatcherEventType = 'NEW_TRANSACTION' | 'NEW_BILL' | 'PRICE_CHANGE' | 'RENEWAL_APPROACHING' | 'SPENDING_SPIKE' | 'USER_CONSTRAINT_CHANGED';
+
 class AutonomousWatcher {
   private isActive = false;
   private intervalId: NodeJS.Timeout | null = null;
@@ -49,6 +51,12 @@ class AutonomousWatcher {
     if (this.logs.length > 20) {
       this.logs.pop(); // keep last 20 logs
     }
+  }
+
+  receiveEvent(type: WatcherEventType, payload: Record<string, unknown> = {}) {
+    const summary = `[Event] ${type}: ${JSON.stringify(payload)}`;
+    this.log(summary);
+    return { type, payload, received_at: new Date().toISOString() };
   }
 
   getStatus(): WatcherStatus {
