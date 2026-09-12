@@ -1,14 +1,15 @@
 import { Router } from "express";
-import { GoogleGenAI } from "@google/genai";
 import { dbHelpers } from "./db";
+import { getGeminiClient, getGeminiModel } from "./gemini";
 
-export function setupChatRoute(ai: GoogleGenAI | null) {
+export function setupChatRoute() {
   const router = Router();
   const sessionMemory: Record<string, any[]> = {};
 
   router.post("/", async (req, res) => {
     try {
       const { message, sessionId = 'default' } = req.body;
+      const ai = getGeminiClient();
       if (!ai) {
         return res.json({ reply: "I'm sorry, conversational chat requires a Gemini API key." });
       }
@@ -39,9 +40,9 @@ Use this context to answer user questions about why you made certain decisions, 
       ];
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: getGeminiModel(),
         contents,
-        config: { systemInstruction },
+        config: { systemInstruction, maxOutputTokens: 512 },
       });
 
       const reply = response.text || "I didn't understand that.";
@@ -54,7 +55,9 @@ Use this context to answer user questions about why you made certain decisions, 
       res.json({ reply });
     } catch (e: any) {
       console.error('Chat error:', e);
-      res.status(500).json({ error: e.message || "Failed to generate chat response" });
+      res.status(503).json({
+        error: "Gemini chat is unavailable. Check GEMINI_API_KEY or GEMINI_AI_KEY in .env, then refresh and try again.",
+      });
     }
   });
 

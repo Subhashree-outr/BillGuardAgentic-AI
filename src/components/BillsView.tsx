@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UploadCloud, FileText, CheckCircle2, AlertTriangle, Eye, RefreshCw, Layers } from 'lucide-react';
 
 interface BillItem {
@@ -35,6 +35,8 @@ export const BillsView: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBills = async () => {
     setIsLoading(true);
@@ -55,8 +57,7 @@ export const BillsView: React.FC = () => {
     fetchBills();
   }, []);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const uploadFile = async (file: File) => {
     if (!file) return;
 
     setIsUploading(true);
@@ -81,8 +82,13 @@ export const BillsView: React.FC = () => {
       setUploadMessage(`Error: ${err.message}`);
     } finally {
       setIsUploading(false);
-      if (e.target) e.target.value = '';
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void uploadFile(file);
+    e.target.value = '';
   };
 
   const handleTextUpload = async () => {
@@ -133,20 +139,21 @@ export const BillsView: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* File input */}
-          <div className="border-2 border-dashed border-[#27272A] hover:border-blue-500/50 rounded-xl p-6 text-center transition-colors flex flex-col items-center justify-center bg-[#09090B]/50">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+            onDragLeave={() => setIsDragActive(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragActive(false); const file = e.dataTransfer.files[0]; if (file) void uploadFile(file); }}
+            className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors flex flex-col items-center justify-center bg-[#09090B]/50 cursor-pointer ${isDragActive ? 'border-blue-400 bg-blue-500/10' : 'border-[#27272A] hover:border-blue-500/50'}`}
+          >
             <FileText className="w-8 h-8 text-[#71717A] mb-2" />
-            <p className="text-xs text-[#FAFAFA] font-medium mb-1">Click to select or drop bill document</p>
+            <p className="text-xs text-[#FAFAFA] font-medium mb-1">Drop bill document here or click to select</p>
             <p className="text-[11px] text-[#71717A] mb-3">PDF, PNG, JPG, or CSV (max 10MB)</p>
-            <label className="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">
-              <span>{isUploading ? 'Extracting...' : 'Browse Document'}</span>
-              <input
-                type="file"
-                className="hidden"
-                accept=".pdf,.png,.jpg,.jpeg,.txt,.csv"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-            </label>
+            <input ref={fileInputRef} type="file" className="sr-only" accept=".pdf,.png,.jpg,.jpeg,.txt,.csv" onChange={handleFileUpload} disabled={isUploading} />
+            <span className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all shadow-sm">{isUploading ? 'Reading...' : 'Browse Document'}</span>
           </div>
 
           {/* Text Paste option */}

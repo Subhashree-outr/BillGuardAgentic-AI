@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Play, Sparkles, FileText, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Sparkles, FileText, ChevronDown, ChevronUp, RotateCcw, UploadCloud } from 'lucide-react';
 import { SAMPLE_DATASETS } from '../sampleData';
 
 interface DataUploaderProps {
@@ -22,15 +22,16 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
+  const [isDragActive, setIsDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const lineCount = rawData ? rawData.trim().split('\n').length : 0;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const uploadFile = async (file: File) => {
     if (!file) return;
 
     setIsUploading(true);
-    setUploadMessage('Extracting data with Gemini Vision...');
+    setUploadMessage('Reading bill document...');
 
     const formData = new FormData();
     formData.append('file', file);
@@ -51,9 +52,13 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
       setUploadMessage(`Upload failed: ${err.message}`);
     } finally {
       setIsUploading(false);
-      // clear file input
-      e.target.value = '';
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void uploadFile(file);
+    e.target.value = '';
   };
 
   return (
@@ -86,22 +91,26 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
-          <div className="relative">
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+            onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+            onDragLeave={() => setIsDragActive(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragActive(false); const file = e.dataTransfer.files[0]; if (file) void uploadFile(file); }}
+            className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-emerald-400 hover:text-white bg-emerald-500/10 border transition-all cursor-pointer ${isDragActive ? 'border-emerald-400 bg-emerald-500/20' : 'border-emerald-500/20'}`}
+          >
             <input
+              ref={fileInputRef}
               type="file"
-              accept="image/*,.pdf"
+              accept="image/*,.pdf,.txt,.csv"
               onChange={handleFileUpload}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              className="sr-only"
               disabled={isUploading}
             />
-            <button
-              type="button"
-              disabled={isUploading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-emerald-400 hover:text-white bg-emerald-500/10 border border-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>{isUploading ? 'Uploading...' : 'Upload Bill (Image/PDF)'}</span>
-            </button>
+            <UploadCloud className="w-3.5 h-3.5" />
+            <span>{isUploading ? 'Uploading...' : isDragActive ? 'Drop bill here' : 'Drop or upload bill'}</span>
           </div>
 
           <button

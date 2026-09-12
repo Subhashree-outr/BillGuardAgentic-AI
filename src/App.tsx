@@ -31,7 +31,7 @@ export default function App() {
   const [report, setReport] = useState<BillGuardReport | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [engine, setEngine] = useState<string>('gemini-3.8-flash');
+  const [engine, setEngine] = useState<string>('gemini-2.5-flash-lite');
 
   const [approvedItemIds, setApprovedItemIds] = useState<Record<string, boolean>>({});
 
@@ -45,7 +45,7 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => {
         if (data && data.hasGeminiKey !== undefined) {
-          setEngine(data.hasGeminiKey ? 'gemini-3.8-flash' : 'rule-engine-billguard');
+          setEngine(data.hasGeminiKey ? (data.model || 'gemini-2.5-flash-lite') : 'rule-engine-billguard');
         }
       })
       .catch(() => {

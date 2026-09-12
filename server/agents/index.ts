@@ -29,6 +29,7 @@ import {
   savings_calculator_tool,
   budget_analysis_tool,
 } from '../tools';
+import { chooseNextTool, executeSupervisedTool } from './supervisor';
 
 export interface WorkflowOptions {
   eventEmitter?: (event: AgentEvent) => void;
@@ -145,10 +146,10 @@ export async function runAnomalyDetectionAgent(
       id: `anom_${crypto.randomUUID().slice(0, 8)}`,
       type: 'price_hike',
       merchant: sub.merchant,
-      amount: hist.difference,
+      amount: hist.difference ?? 0,
       currency: 'INR',
       severity: 'medium' as const,
-      evidence: hist.evidence,
+      evidence: hist.evidence ?? 'Historical price comparison completed.',
       explanation_chain: [
         "Scanned active subscriptions.",
         `Detected ${sub.merchant} recurring charge of ₹${sub.current_price}.`,
@@ -650,6 +651,115 @@ export async function runEvaluationAndReplanningAgent(
   return state;
 }
 
+async function runSupervisorLoop(
+  runId: string,
+  state: AgentRunState,
+  options: WorkflowOptions
+) {
+  const maxIterations = 6;
+
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
+    const choice = await chooseNextTool(state, options.aiInstance);
+    if (!choice) {
+      state.next_action = undefined;
+      logEvent(options, {
+        run_id: runId,
+        event_type: 'decision',
+        agent_name: 'Supervisor Agent',
+        status: 'success',
+        summary: 'Supervisor determined that the available evidence is sufficient for specialist analysis.',
+        details_json: { iteration, tool_history: state.tool_history },
+      });
+      return;
+    }
+
+    state.next_action = choice;
+    state.reasoning_trace.push({
+      iteration,
+      observation: `Evidence available: ${state.observations.length} observations, ${state.tool_history.length} completed tools.`,
+      decision: `Select ${choice.tool}`,
+      selected_tool: choice.tool,
+      rationale: choice.rationale,
+      confidence: choice.confidence,
+      timestamp: new Date().toISOString(),
+    });
+    state.selected_tools.push({ tool: choice.tool, input: { user_id: state.user_id }, status: 'planned' });
+
+    logEvent(options, {
+      run_id: runId,
+      event_type: 'decision',
+      agent_name: 'Supervisor Agent',
+      tool_name: choice.tool,
+      status: 'info',
+      summary: `Supervisor selected ${choice.tool}: ${choice.rationale}`,
+      details_json: { iteration, confidence: choice.confidence },
+    });
+
+    const selectedTool = state.selected_tools[state.selected_tools.length - 1];
+    selectedTool.status = 'called';
+
+    try {
+      const execution = await executeSupervisedTool(state, choice);
+      selectedTool.status = 'succeeded';
+      state.tool_history.push({
+        tool: choice.tool,
+        status: 'succeeded',
+        summary: execution.summary,
+        timestamp: new Date().toISOString(),
+      });
+      state.observations.push({
+        category: choice.tool.replace(/^find_|^inspect_|^analyze_/, '').replace(/_anomalies|_charges/, ''),
+        summary: execution.summary,
+        data: execution.result,
+        timestamp: new Date().toISOString(),
+      });
+      logEvent(options, {
+        run_id: runId,
+        event_type: 'tool_result',
+        agent_name: 'Supervisor Agent',
+        tool_name: choice.tool,
+        status: 'success',
+        summary: execution.summary,
+      });
+    } catch (err: any) {
+      selectedTool.status = 'failed';
+      selectedTool.fallback_used = true;
+      state.tool_history.push({
+        tool: choice.tool,
+        status: 'failed',
+        summary: err.message || 'Tool execution failed.',
+        timestamp: new Date().toISOString(),
+      });
+      state.errors.push({
+        timestamp: new Date().toISOString(),
+        tool_or_agent: choice.tool,
+        error_message: err.message || 'Tool execution failed.',
+        fallback_action_taken: 'Supervisor recorded the failure and selected another read-only capability.',
+      });
+      logEvent(options, {
+        run_id: runId,
+        event_type: 'error',
+        agent_name: 'Supervisor Agent',
+        tool_name: choice.tool,
+        status: 'error',
+        summary: `${choice.tool} failed; supervisor will continue with another capability.`,
+        details_json: { error: err.message },
+      });
+    }
+
+    dbHelpers.saveAgentRun(state);
+  }
+
+  state.next_action = undefined;
+  logEvent(options, {
+    run_id: runId,
+    event_type: 'decision',
+    agent_name: 'Supervisor Agent',
+    status: 'warning',
+    summary: `Supervisor stopped after ${maxIterations} bounded iterations to prevent an unbounded agent loop.`,
+  });
+}
+
 /**
  * Main State-Based Agent Workflow Runner
  */
@@ -697,6 +807,8 @@ export async function runAgenticWorkflow(
     ],
     detected_issues: [],
     selected_tools: [],
+    reasoning_trace: [],
+    tool_history: [],
     actions: [],
     action_results: [],
     evaluation: {
@@ -732,6 +844,10 @@ export async function runAgenticWorkflow(
     summary: `Goal Activated: "${state.user_goal.title}" (Target: ₹${state.user_goal.target_amount})`,
     details_json: state.user_goal,
   });
+
+  // The supervisor chooses read-only capabilities from current evidence before
+  // specialist agents formulate findings and consequential actions.
+  await runSupervisorLoop(runId, state, options);
 
   // Phase 1: OBSERVE & PLAN
   state.current_phase = 'OBSERVE';

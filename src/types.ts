@@ -127,6 +127,25 @@ export interface BillGuardReport {
   autopilot_goal?: AutopilotGoal;
 }
 
+export interface AgentEvent {
+  id: string;
+  run_id: string;
+  timestamp: string;
+  event_type: string;
+  agent_name: string;
+  tool_name?: string;
+  status: 'success' | 'warning' | 'error' | 'info';
+  summary: string;
+}
+
+export interface AgentRunState {
+  run_id: string;
+  goal_id: string;
+  status: string;
+  current_phase: string;
+  [key: string]: any;
+}
+
 export interface SampleDataset {
   id: string;
   name: string;

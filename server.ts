@@ -3,16 +3,13 @@ import path from "path";
 import crypto from "node:crypto";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
-import dotenv from "dotenv";
 import { initDatabase, dbHelpers, seedSyntheticData, DEFAULT_USER_ID } from "./server/db";
 import { runAgenticWorkflow } from "./server/agents";
 import { bill_parser_tool, setMerchantVerificationForceFail, currency_conversion_tool } from "./server/tools";
 import { analyzeBillingDataDeterministic } from "./server/analyzer";
 import { setupChatRoute } from "./server/chat";
 import { watcher } from "./server/watcher";
-
-dotenv.config();
+import { getGeminiClient, getGeminiModel } from "./server/gemini";
 
 // Initialize SQLite database & synthetic data
 initDatabase();
@@ -30,22 +27,13 @@ async function startServer() {
   app.use(express.json({ limit: "15mb" }));
   app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
-  // Initialize Gemini AI client if key exists
-  let ai: GoogleGenAI | null = null;
-  if (process.env.GEMINI_API_KEY) {
-    try {
-      ai = new GoogleGenAI({
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build-billguard',
-          },
-        },
-      });
-    } catch (e) {
-      console.error("[BillGuard] Failed to init GoogleGenAI:", e);
-    }
-  }
+  let ai = getGeminiClient();
+
+  // Reload .env on every request so toggling Gemini does not require a restart.
+  app.use((_req, _res, next) => {
+    ai = getGeminiClient();
+    next();
+  });
 
   // ==========================================
   // REST API ENDPOINTS (SECTION 7 SPECIFICATION)
@@ -55,8 +43,8 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({
       status: "ok",
-      hasGeminiKey: !!process.env.GEMINI_API_KEY,
-      model: "gemini-3.8-flash",
+      hasGeminiKey: !!ai,
+      model: getGeminiModel(),
       database: "sqlite3",
       timestamp: new Date().toISOString(),
     });
@@ -102,6 +90,9 @@ async function startServer() {
         filename = req.file.originalname;
         fileType = req.file.mimetype;
         if (fileType.includes("image")) {
+          if (!ai) {
+            return res.status(422).json({ error: "Image bills require Gemini Vision. Upload a text-based PDF or paste the bill text when Gemini is unavailable." });
+          }
           imageBase64 = req.file.buffer.toString("base64");
           fileText = "IMAGE_UPLOAD";
         } else if (fileType === "application/pdf") {
@@ -442,7 +433,7 @@ async function startServer() {
   });
 
   // 10. Conversational Agent Memory Chat
-  app.use("/api/chat", setupChatRoute(ai));
+  app.use("/api/chat", setupChatRoute());
 
   // 11. Autonomous Watcher API
   app.get("/api/watcher/status", (req, res) => {
@@ -484,7 +475,7 @@ async function startServer() {
 
       // Check if we can use Gemini
       if (ai) {
-        const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest"];
+        const candidateModels = [getGeminiModel()];
         for (const modelName of candidateModels) {
           try {
             const timeoutPromise = new Promise((_, reject) =>
@@ -499,6 +490,7 @@ async function startServer() {
                 config: {
                   responseMimeType: "application/json",
                   temperature: 0.1,
+                  maxOutputTokens: 1024,
                 }
               }),
               timeoutPromise

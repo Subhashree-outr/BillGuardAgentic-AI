@@ -4,6 +4,7 @@
 
 import { dbHelpers, DEFAULT_USER_ID } from '../db';
 import { BillItem, Subscription, Transaction } from '../types';
+import { getGeminiModel } from '../gemini';
 
 export interface BillParserResult {
   merchant: string;
@@ -72,9 +73,9 @@ Return strict JSON with this schema:
       }
 
       const response = await input.aiInstance.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: getGeminiModel(),
         contents,
-        config: { responseMimeType: 'application/json' },
+        config: { responseMimeType: 'application/json', maxOutputTokens: 1024 },
       });
 
       const parsed = JSON.parse(response.text || '{}');
@@ -97,58 +98,42 @@ Return strict JSON with this schema:
     }
   }
 
-  // Deterministic resilient parser
+  // Deterministic parser: only return values supported by the uploaded text.
   const lower = content.toLowerCase();
-  let merchant = 'Unknown Merchant';
-  let category = 'Subscriptions';
-  let totalAmount = 0;
-  let isRecurring = true;
-  const lineItems: BillParserResult['line_items'] = [];
+  const lines = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const currency = /\$|usd/i.test(content) ? 'USD' : 'INR';
+  const merchantLine = lines.find(line => !/invoice|receipt|statement|date:|total|amount|tax|due/i.test(line) && !/[₹$]\s*\d/.test(line));
+  const merchant = (merchantLine || filename.replace(/\.[^.]+$/, '') || 'Unknown Merchant').slice(0, 80);
+  const category = /aws|amazon web services|cloud|hosting/i.test(lower)
+    ? 'Cloud Infrastructure'
+    : /netflix|spotify|music|streaming/i.test(lower)
+      ? 'Entertainment'
+      : 'General';
+  const moneyPattern = /(?:₹|\$|inr|usd)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/ig;
+  const amounts = [...content.matchAll(moneyPattern)]
+    .map(match => Number(match[1].replace(/,/g, '')))
+    .filter(amount => Number.isFinite(amount) && amount > 0);
+  const totalLine = lines.find(line => /grand total|total amount|amount due|balance due|total:/i.test(line));
+  const totalMatch = totalLine?.match(moneyPattern);
+  const totalAmount = totalMatch ? Number(totalMatch[1].replace(/,/g, '')) : (amounts.length ? Math.max(...amounts) : 0);
+  const lineItems: BillParserResult['line_items'] = lines
+    .map(line => {
+      const match = line.match(moneyPattern);
+      if (!match || /total|tax|subtotal|balance due/i.test(line)) return null;
+      const amount = Number(match[1].replace(/,/g, ''));
+      const description = line.replace(match[0], '').replace(/[:=-]\s*$/, '').trim();
+      return description && amount > 0 ? {
+        description,
+        quantity: 1,
+        unit_price: amount,
+        total_price: amount,
+        category,
+      } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 
-  if (lower.includes('aws') || lower.includes('amazon web services')) {
-    merchant = 'AWS Cloud Services';
-    category = 'Cloud Infrastructure';
-    totalAmount = 3450.0;
-    lineItems.push(
-      { description: 'EC2 Compute Instances', quantity: 1, unit_price: 850.0, total_price: 850.0, category: 'Compute' },
-      { description: 'Unattached EBS gp3 Volumes & Snapshots', quantity: 4, unit_price: 518.43, total_price: 2073.73, category: 'Storage' },
-      { description: 'Tax GST 18%', quantity: 1, unit_price: 526.27, total_price: 526.27, category: 'Tax' }
-    );
-  } else if (lower.includes('netflix')) {
-    merchant = 'Netflix Premium 4K';
-    category = 'Entertainment';
-    totalAmount = 649.0;
-    lineItems.push({
-      description: 'Netflix 4K Monthly Subscription Tier',
-      quantity: 1,
-      unit_price: 550.0,
-      total_price: 550.0,
-      category: 'Entertainment',
-    });
-  } else if (lower.includes('spotify')) {
-    merchant = 'Spotify Premium';
-    category = 'Entertainment';
-    totalAmount = 119.0;
-    lineItems.push({
-      description: 'Individual Music Streaming',
-      quantity: 1,
-      unit_price: 119.0,
-      total_price: 119.0,
-      category: 'Entertainment',
-    });
-  } else {
-    // Regex money extractor
-    const moneyMatch = content.match(/(?:₹|\$|inr|usd)?\s*([0-9]+(?:\.[0-9]{2})?)/i);
-    totalAmount = moneyMatch ? parseFloat(moneyMatch[1]) : 499.0;
-    const firstLine = content.split('\n')[0]?.trim() || filename;
-    merchant = firstLine.slice(0, 30) || 'Verified Merchant';
-    lineItems.push({
-      description: 'Monthly service invoice',
-      quantity: 1,
-      unit_price: totalAmount,
-      total_price: totalAmount,
-      category: 'General',
-    });
+  if (!totalAmount) {
+    throw new Error(`Unable to find a bill total in ${filename}. Add a line such as "Total Amount: 25.00" or use Gemini for image extraction.`);
   }
 
   return {
@@ -157,11 +142,11 @@ Return strict JSON with this schema:
     due_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
     total_amount: totalAmount,
     tax: Math.round(totalAmount * 0.18 * 100) / 100,
-    currency: content.includes('$') ? 'USD' : 'INR',
+    currency,
     category,
-    is_recurring: isRecurring,
+    is_recurring: /monthly|annual|recurring|subscription|renewal/i.test(lower),
     line_items: lineItems,
-    raw_summary: `Processed bill for ${merchant} (${totalAmount})`,
+    raw_summary: `Deterministically parsed ${merchant} from uploaded text; no Gemini extraction was used. Total ${currency} ${totalAmount}.`,
   };
 }
 

@@ -136,6 +136,26 @@ export interface AgentRunState {
     status: 'planned' | 'called' | 'succeeded' | 'failed';
     fallback_used?: boolean;
   }>;
+  reasoning_trace: Array<{
+    iteration: number;
+    observation: string;
+    decision: string;
+    selected_tool?: string;
+    rationale: string;
+    confidence: number;
+    timestamp: string;
+  }>;
+  tool_history: Array<{
+    tool: string;
+    status: 'succeeded' | 'failed';
+    summary: string;
+    timestamp: string;
+  }>;
+  next_action?: {
+    tool: string;
+    rationale: string;
+    confidence: number;
+  };
   actions: Array<{
     id: string;
     target_merchant: string;
