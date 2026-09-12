@@ -31,7 +31,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   onSelectTab,
-  engine = 'gemini-3.8-flash',
+  engine = 'gemini-2.5-flash-lite',
 }) => {
   const tabs: { id: AppNavTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5" /> },

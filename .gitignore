@@ -1,5 +1,9 @@
 node_modules/
 .DS_Store
 billguard.db
+*.db
 dist/
 package-lock.json
+.env
+.env.*
+!.env.example

@@ -127,6 +127,9 @@ async function runTests() {
   assert(workflowState.observations.length > 0, 'Agent recorded initial observations');
   assert(workflowState.detected_issues.length > 0, 'Agent detected billing issues & anomalies');
   assert(workflowState.actions.length > 0, 'Agent generated prioritized actions');
+  assert(workflowState.reasoning_trace.length > 0, 'Supervisor recorded explicit tool-selection reasoning');
+  assert(workflowState.tool_history.length > 0, 'Supervisor executed tools through the registry');
+  assert(workflowState.selected_tools.some(tool => tool.status === 'succeeded'), 'Registry tool call completed successfully');
   assert(workflowState.replanning_status.is_replanning === true, 'Replanning Agent was autonomously triggered when initial plan < ₹5,000');
   assert(workflowState.evaluation.projected_savings >= 5000, `Achieved target savings (₹${workflowState.evaluation.projected_savings} >= ₹5,000)`);
   assert(workflowState.status === 'waiting_for_approval', 'Consequential actions safely paused in waiting_for_approval state');

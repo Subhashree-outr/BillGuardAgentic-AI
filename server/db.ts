@@ -686,6 +686,11 @@ export const dbHelpers = {
     return JSON.parse(row.state_json) as AgentRunState;
   },
 
+  getAgentRuns(): AgentRunState[] {
+    const rows = db.prepare('SELECT state_json FROM agent_runs ORDER BY created_at ASC').all() as Array<{ state_json: string }>;
+    return rows.map(row => JSON.parse(row.state_json) as AgentRunState);
+  },
+
   // Agent Events
   logAgentEvent(event: AgentEvent): void {
     db.prepare(`
