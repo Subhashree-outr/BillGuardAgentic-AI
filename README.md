@@ -160,6 +160,12 @@ The build creates the Vite frontend and bundles the Express server into `dist/se
 
 GitHub Pages serves static files only. The repository includes `.github/workflows/deploy-pages.yml`, which runs `npm ci`, builds only the Vite frontend, and deploys `dist/` whenever `main` changes. Vite automatically uses `/<repository-name>/` as the Pages base path, so the browser loads built assets instead of requesting `/src/main.tsx`.
 
+For this repository, the project Pages URL is:
+
+`https://subhashree-outr.github.io/BillGuardAgentic-AI/`
+
+Do not open `https://subhashree-outr.github.io/` unless the separate `Subhashree-outr.github.io` repository is configured to deploy this project. The root user-site URL is a different GitHub Pages site.
+
 Enable **Settings > Pages > Source: GitHub Actions** in the repository. The static Pages deployment cannot run Express routes such as `/api/chat`, `/api/analyze`, uploads, SQLite, the watcher, or agent execution. Use `npm run dev` or a Node deployment for those backend features.
 
 ### User-provided Gemini keys
