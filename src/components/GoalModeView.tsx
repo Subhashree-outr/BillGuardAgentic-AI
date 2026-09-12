@@ -16,6 +16,21 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
   const [runResult, setRunResult] = useState<any>(null);
   const [keepAppleMusic, setKeepAppleMusic] = useState(false);
   const [forceFailGateway, setForceFailGateway] = useState(false);
+  const [questionAnswer, setQuestionAnswer] = useState('');
+
+  const answerQuestion = async () => {
+    if (!runResult?.pending_question || !questionAnswer.trim()) return;
+    const response = await fetch(`/api/agent/${runResult.run_id}/questions/${runResult.pending_question.id}/answer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answer: questionAnswer }),
+    });
+    const data = await response.json();
+    if (data.state) {
+      setRunResult(data.state);
+      setQuestionAnswer('');
+    }
+  };
 
   const runGoal = async () => {
     setIsRunning(true);
@@ -243,6 +258,43 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
           </div>
 
           {/* Formulated Actions with Approval Gates */}
+          {runResult.pending_question && (
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5" />
+                <div>
+                  <h5 className="text-xs font-bold text-amber-300">Agent needs your input</h5>
+                  <p className="text-xs text-[#D4D4D8] mt-1">{runResult.pending_question.question}</p>
+                  <p className="text-[11px] text-[#A1A1AA] mt-1">{runResult.pending_question.context}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(runResult.pending_question.options || ['Keep it', 'Continue']).map((option: string) => (
+                  <button key={option} type="button" onClick={() => setQuestionAnswer(option)} className={`px-3 py-1.5 rounded-lg text-xs border ${questionAnswer === option ? 'border-amber-400 text-amber-300 bg-amber-500/20' : 'border-[#52525B] text-[#D4D4D8]'}`}>
+                    {option}
+                  </button>
+                ))}
+                <button type="button" onClick={answerQuestion} disabled={!questionAnswer} className="px-3 py-1.5 rounded-lg text-xs bg-amber-500 text-black font-semibold disabled:opacity-40">Submit answer</button>
+              </div>
+            </div>
+          )}
+
+          {runResult.candidate_plans?.length > 0 && (
+            <div>
+              <h5 className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3">Candidate plans</h5>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {runResult.candidate_plans.map((plan: any) => (
+                  <div key={plan.id} className={`bg-[#09090B] border rounded-xl p-4 ${plan.recommended ? 'border-emerald-500/50' : 'border-[#27272A]'}`}>
+                    <div className="flex justify-between gap-2"><span className="text-xs font-bold text-[#FAFAFA]">{plan.name}</span>{plan.recommended && <span className="text-[10px] text-emerald-400">Recommended</span>}</div>
+                    <p className="text-[11px] text-[#A1A1AA] mt-1">{plan.description}</p>
+                    <p className="text-sm font-bold text-emerald-400 mt-3">₹{plan.projected_monthly_savings.toFixed(2)}/mo</p>
+                    <p className="text-[10px] text-[#71717A]">Risk: {plan.risk} · {plan.action_ids.length} actions</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div>
             <h5 className="text-xs font-bold text-[#A1A1AA] uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-blue-400" />
@@ -262,6 +314,7 @@ export const GoalModeView: React.FC<GoalModeViewProps> = ({ onRunComplete }) => 
                         {act.action_type.replace('_', ' ')}
                       </span>
                       <span className="text-[10px] text-[#71717A]">Priority #{act.priority}</span>
+                      {act.risk && <span className="text-[10px] text-amber-300 uppercase">{act.risk} risk</span>}
                     </div>
                     <p className="text-xs text-[#A1A1AA] mt-1">{act.description}</p>
                   </div>

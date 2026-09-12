@@ -9,6 +9,7 @@ interface DataUploaderProps {
   isLoading: boolean;
   selectedSampleId: string;
   onSelectSample: (id: string) => void;
+  apiKey?: string;
 }
 
 export const DataUploader: React.FC<DataUploaderProps> = ({
@@ -18,6 +19,7 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
   isLoading,
   selectedSampleId,
   onSelectSample,
+  apiKey,
 }) => {
   const [showCustomEditor, setShowCustomEditor] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -39,6 +41,7 @@ export const DataUploader: React.FC<DataUploaderProps> = ({
     try {
       const res = await fetch('/api/bills/upload', {
         method: 'POST',
+        headers: apiKey ? { 'X-Gemini-API-Key': apiKey } : undefined,
         body: formData,
       });
       const data = await res.json();

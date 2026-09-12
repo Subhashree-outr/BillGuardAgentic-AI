@@ -9,6 +9,7 @@ import {
   CreditCard,
   Calendar,
   Sparkles,
+  Settings,
 } from 'lucide-react';
 import { WatcherStatus } from './WatcherStatus';
 
@@ -20,7 +21,8 @@ export type AppNavTab =
   | 'transactions'
   | 'subscriptions'
   | 'demos'
-  | 'json';
+  | 'json'
+  | 'settings';
 
 interface HeaderProps {
   currentTab: AppNavTab;
@@ -42,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'subscriptions', label: 'Subscriptions', icon: <Calendar className="w-3.5 h-3.5" /> },
     { id: 'demos', label: 'Demo Mode', icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />, badge: '5 Scenarios' },
     { id: 'json', label: 'JSON', icon: <Code className="w-3.5 h-3.5" /> },
+    { id: 'settings', label: 'Settings', icon: <Settings className="w-3.5 h-3.5" /> },
   ];
 
   return (

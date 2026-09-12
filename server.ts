@@ -3,8 +3,8 @@ import path from "path";
 import crypto from "node:crypto";
 import multer from "multer";
 import { createServer as createViteServer } from "vite";
-import { initDatabase, dbHelpers, seedSyntheticData, DEFAULT_USER_ID } from "./server/db";
-import { runAgenticWorkflow } from "./server/agents";
+import { initDatabase, closeDatabase, dbHelpers, seedSyntheticData, DEFAULT_USER_ID } from "./server/db";
+import { runAgenticWorkflow } from "./server/agents/index";
 import { bill_parser_tool, setMerchantVerificationForceFail, currency_conversion_tool } from "./server/tools";
 import { analyzeBillingDataDeterministic } from "./server/analyzer";
 import { setupChatRoute } from "./server/chat";
@@ -16,7 +16,19 @@ initDatabase();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
+  app.disable("x-powered-by");
+
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("Referrer-Policy", "same-origin");
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+    req.setTimeout(30_000);
+    next();
+  });
 
   // File upload configuration with 10MB limit and sanitized in-memory buffer
   const upload = multer({
@@ -30,8 +42,8 @@ async function startServer() {
   let ai = getGeminiClient();
 
   // Reload .env on every request so toggling Gemini does not require a restart.
-  app.use((_req, _res, next) => {
-    ai = getGeminiClient();
+  app.use((req, _res, next) => {
+    ai = getGeminiClient(req.header('x-gemini-api-key'));
     next();
   });
 
@@ -46,8 +58,22 @@ async function startServer() {
       hasGeminiKey: !!ai,
       model: getGeminiModel(),
       database: "sqlite3",
+      environment: process.env.NODE_ENV || "development",
       timestamp: new Date().toISOString(),
     });
+  });
+
+  app.post("/api/gemini/test", async (req, res) => {
+    const requestKey = req.header('x-gemini-api-key');
+    const client = getGeminiClient(requestKey);
+    if (!client) return res.status(400).json({ error: 'No Gemini API key was provided.' });
+    try {
+      const response = await client.models.generateContent({ model: getGeminiModel(requestKey), contents: 'Reply with the single word OK.', config: { maxOutputTokens: 8 } });
+      return res.json({ success: Boolean(response.text) });
+    } catch (error: any) {
+      console.error('[BillGuard] Gemini test failed:', error?.status || error?.message || 'unknown');
+      return res.status(400).json({ error: 'Gemini rejected this key or the configured model.' });
+    }
   });
 
   // 2. Authentication (Mock-Safe / Local Dev)
@@ -253,6 +279,23 @@ async function startServer() {
     res.json({ success: true, count: events.length, events });
   });
 
+  app.post("/api/agent/:run_id/questions/:questionId/answer", (req, res) => {
+    const state = dbHelpers.getAgentRun(req.params.run_id);
+    if (!state?.pending_question || state.pending_question.id !== req.params.questionId) {
+      return res.status(404).json({ error: "Pending agent question not found." });
+    }
+    const answer = String(req.body?.answer || '').trim();
+    if (!answer) return res.status(400).json({ error: "An answer is required." });
+    if (/keep|yes|required|work/i.test(answer) && state.pending_question.related_merchant) {
+      const merchantKey = state.pending_question.related_merchant.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+      state.user_goal.constraints.push(`keep_${merchantKey}`);
+    }
+    state.pending_question = undefined;
+    state.status = 'replanning';
+    dbHelpers.saveAgentRun(state);
+    return res.json({ success: true, state });
+  });
+
   // Real-Time SSE Stream for Agent Workflow
   app.get("/api/agent/stream/:id", (req, res) => {
     const goalId = req.params.id;
@@ -450,6 +493,15 @@ async function startServer() {
     res.json(watcher.getStatus());
   });
 
+  app.post("/api/watcher/events", async (req, res) => {
+    const type = String(req.body?.type || '').toUpperCase();
+    const allowed = ['NEW_TRANSACTION', 'NEW_BILL', 'PRICE_CHANGE', 'RENEWAL_APPROACHING', 'SPENDING_SPIKE', 'USER_CONSTRAINT_CHANGED'];
+    if (!allowed.includes(type)) return res.status(400).json({ error: `Unsupported watcher event. Use one of: ${allowed.join(', ')}` });
+    const event = watcher.receiveEvent(type as any, req.body?.payload || {});
+    const runState = await runAgenticWorkflow('goal_hackathon_demo', `Watcher response to ${type}`, { userId: DEFAULT_USER_ID, aiInstance: ai });
+    return res.status(202).json({ success: true, event, run_id: runState.run_id, state: runState });
+  });
+
   // 12. FX Tool Endpoint
   app.post("/api/tools/fx", async (req, res) => {
     try {
@@ -530,6 +582,12 @@ async function startServer() {
     }
   });
 
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error("[BillGuard] Unhandled request error:", err);
+    if (res.headersSent) return;
+    res.status(err?.statusCode || 500).json({ error: "Internal server error." });
+  });
+
   // ==========================================
   // VITE MIDDLEWARE SETUP
   // ==========================================
@@ -549,9 +607,20 @@ async function startServer() {
 
   // Start Watcher and Server
   watcher.start();
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`[BillGuard] Full-Stack Server running on port ${PORT}`);
   });
+
+  const shutdown = (signal: string) => {
+    console.log(`[BillGuard] ${signal} received; shutting down.`);
+    watcher.stop();
+    server.close(() => {
+      closeDatabase();
+      process.exit(0);
+    });
+  };
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 startServer();

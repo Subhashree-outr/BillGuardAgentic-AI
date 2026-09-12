@@ -19,6 +19,10 @@ import {
 const DB_PATH = path.join(process.cwd(), 'billguard.db');
 const db = new DatabaseSync(DB_PATH);
 
+export function closeDatabase() {
+  db.close();
+}
+
 // Initialize Tables
 export function initDatabase() {
   db.exec(`

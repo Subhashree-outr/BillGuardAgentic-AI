@@ -3,7 +3,6 @@ node_modules/
 billguard.db
 *.db
 dist/
-package-lock.json
 .env
 .env.*
 !.env.example

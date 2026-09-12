@@ -156,6 +156,30 @@ export interface AgentRunState {
     rationale: string;
     confidence: number;
   };
+  pending_question?: {
+    id: string;
+    question: string;
+    context: string;
+    related_merchant?: string;
+    options?: string[];
+  };
+  candidate_plans: Array<{
+    id: string;
+    name: string;
+    description: string;
+    action_ids: string[];
+    projected_monthly_savings: number;
+    projected_annual_savings: number;
+    risk: 'low' | 'medium' | 'high';
+    recommended: boolean;
+  }>;
+  agent_metrics: {
+    iterations: number;
+    tools_used: number;
+    failed_tools: number;
+    replans: number;
+    human_approval_rate?: number;
+  };
   actions: Array<{
     id: string;
     target_merchant: string;
@@ -167,6 +191,10 @@ export interface AgentRunState {
     requires_approval: boolean;
     approval_status: 'pending' | 'approved' | 'rejected' | 'modified';
     execution_status: 'pending' | 'simulated' | 'executed' | 'skipped';
+    risk?: 'low' | 'medium' | 'high';
+    service_impact?: string;
+    reversible?: boolean;
+    confidence?: number;
     simulation_result?: string;
     template_letter?: string;
   }>;

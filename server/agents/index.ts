@@ -1,881 +1,114 @@
 /**
- * Multi-Agent System & State Orchestrator for BillGuard
- *
- * Implements the full State-Based Agent Workflow:
- * USER GOAL -> OBSERVE -> PLAN -> DECIDE -> USE TOOLS -> EXECUTE -> EVALUATE -> ADAPT / REPLAN -> OUTCOME
+ * Agent workflow coordinator.
+ * Specialist behavior lives in the neighboring agent modules; this file only
+ * creates state, sequences the phases, and persists the run outcome.
  */
-
 import crypto from 'node:crypto';
 import { dbHelpers, DEFAULT_USER_ID } from '../db';
-
-function logEvent(options: WorkflowOptions, event: Omit<AgentEvent, 'id' | 'timestamp'> & { id?: string, timestamp?: string }) {
-  const fullEvent = { ...event, id: event.id || `evt_${crypto.randomUUID().slice(0, 8)}`, timestamp: event.timestamp || new Date().toISOString() } as AgentEvent;
-  dbHelpers.logAgentEvent(fullEvent);
-  if (options.eventEmitter) options.eventEmitter(fullEvent);
-}
-import {
-  AgentRunState,
-  AgentEvent,
-  AgentGoal,
-  AgentPhase,
-} from '../types';
-import {
-  bill_parser_tool,
-  transaction_analysis_tool,
-  subscription_detection_tool,
-  historical_comparison_tool,
-  merchant_verification_tool,
-  currency_conversion_tool,
-  savings_calculator_tool,
-  budget_analysis_tool,
-} from '../tools';
-import { chooseNextTool, executeSupervisedTool } from './supervisor';
-
-export interface WorkflowOptions {
-  eventEmitter?: (event: AgentEvent) => void;
-  userId?: string;
-  forceToolFailure?: boolean;
-  userConstraintOverride?: string;
-  aiInstance?: any;
-}
-
-/**
- * A. Bill Analyzer Agent
- */
-export async function runBillAnalyzerAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  const bills = dbHelpers.getBills(state.user_id);
-
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'tool_call',
-    agent_name: 'Bill Analyzer Agent',
-    tool_name: 'bill_parser_tool',
-    status: 'info',
-    summary: `Analyzing ${bills.length} uploaded bills and invoices`,
-  });
-
-  const parsedBills = [];
-  for (const b of bills) {
-    parsedBills.push({
-      merchant: b.merchant,
-      total_amount: b.total_amount,
-      currency: b.currency,
-      category: b.category,
-      is_recurring: b.is_recurring,
-      item_count: b.items?.length || 0,
-      due_date: b.due_date,
-    });
-  }
-
-  state.observations.push({
-    category: 'bills',
-    summary: `Extracted ${bills.length} verified bills totalling ₹${bills.reduce((sum, b) => sum + b.total_amount, 0).toFixed(2)}`,
-    data: parsedBills,
-    timestamp: new Date().toISOString(),
-  });
-
-  return parsedBills;
-}
-
-/**
- * B. Anomaly Detection Agent
- */
-export async function runAnomalyDetectionAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'decision',
-    agent_name: 'Anomaly Detection Agent',
-    tool_name: 'transaction_analysis_tool',
-    status: 'info',
-    summary: 'Scanning transaction ledger for duplicate charges, price hikes & unusual spikes',
-  });
-
-  const txAnalysis = transaction_analysis_tool(state.user_id);
-  const detectedIssues: AgentRunState['detected_issues'] = [];
-
-  // 1. Duplicate transactions
-  for (const dup of txAnalysis.duplicates_detected) {
-    const issue = {
-      id: `anom_${crypto.randomUUID().slice(0, 8)}`,
-      type: 'duplicate_charge',
-      merchant: dup.merchant,
-      amount: dup.amount,
-      currency: 'INR',
-      severity: 'high' as const,
-      evidence: `Identical charge of ₹${dup.amount} billed twice within ${dup.timeGapMinutes} minutes. Transaction IDs: ${dup.tx1.id} and ${dup.tx2.id}.`,
-      explanation_chain: [
-        "Analyzed transaction ledger for duplicate amounts.",
-        `Found two transactions of ₹${dup.amount} at ${dup.merchant}.`,
-        `Checked timestamp gap: ${dup.timeGapMinutes} minutes apart.`,
-        "Concluded high likelihood of accidental double-swipe or double-billing."
-      ],
-      confidence: 0.98,
-    };
-    detectedIssues.push(issue);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'tool_result',
-      agent_name: 'Anomaly Detection Agent',
-      tool_name: 'transaction_analysis_tool',
-      status: 'warning',
-      summary: `Duplicate detected: ${dup.merchant} charged twice (₹${dup.amount}) in ${dup.timeGapMinutes} mins`,
-      details_json: issue,
-    });
-  }
-
-  // 2. Sudden Price Increases
-  const subAnalysis = subscription_detection_tool(state.user_id);
-  for (const sub of subAnalysis.price_increase_subscriptions) {
-    const hist = historical_comparison_tool(sub.merchant, sub.current_price, state.user_id);
-    const issue = {
-      id: `anom_${crypto.randomUUID().slice(0, 8)}`,
-      type: 'price_hike',
-      merchant: sub.merchant,
-      amount: hist.difference ?? 0,
-      currency: 'INR',
-      severity: 'medium' as const,
-      evidence: hist.evidence ?? 'Historical price comparison completed.',
-      explanation_chain: [
-        "Scanned active subscriptions.",
-        `Detected ${sub.merchant} recurring charge of ₹${sub.current_price}.`,
-        "Queried historical ledger for past 12 months.",
-        `Found previous baseline price was ₹${hist.previous_price}.`,
-        `Calculated ${hist.percentage_change}% increase, which exceeds normal inflation.`
-      ],
-      confidence: 0.94,
-    };
-    detectedIssues.push(issue);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'tool_result',
-      agent_name: 'Anomaly Detection Agent',
-      tool_name: 'historical_comparison_tool',
-      status: 'warning',
-      summary: `Sudden price hike detected: ${sub.merchant} increased from ₹${hist.previous_price} to ₹${hist.current_price} (+${hist.percentage_change}%)`,
-      details_json: issue,
-    });
-  }
-
-  // 3. AWS Runaway Cloud Cost Anomaly
-  const awsBill = dbHelpers.getBills(state.user_id).find(b => b.merchant.includes('AWS'));
-  if (awsBill && awsBill.total_amount > 2000) {
-    const issue = {
-      id: `anom_${crypto.randomUUID().slice(0, 8)}`,
-      type: 'unusual_spike',
-      merchant: 'AWS Cloud Services',
-      amount: awsBill.total_amount,
-      currency: 'INR',
-      severity: 'high' as const,
-      evidence: `Cloud bill surged to ₹3,450.00 driven by ₹2,073.73 in unattached orphan EBS volumes and forgotten snapshots. Historical average was ₹850.00.`,
-      explanation_chain: [
-        "Observed AWS Cloud Services bill total: ₹3,450.00.",
-        "Compared against 6-month moving average of ₹850.00.",
-        "Parsed detailed AWS billing invoice via Gemini Vision.",
-        "Identified 'EBS Volume (Unattached)' and 'Snapshots' accounting for ₹2,073.73.",
-        "Flagged as infrastructure waste anomaly."
-      ],
-      confidence: 0.96,
-    };
-    detectedIssues.push(issue);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'tool_result',
-      agent_name: 'Anomaly Detection Agent',
-      tool_name: 'bill_parser_tool',
-      status: 'warning',
-      summary: 'Abnormal bill surge: AWS Cloud Services runaway storage cost (₹3,450 vs baseline ₹850)',
-      details_json: issue,
-    });
-  }
-
-  state.detected_issues.push(...detectedIssues);
-  return detectedIssues;
-}
-
-/**
- * C. Subscription Agent
- */
-export async function runSubscriptionAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'tool_call',
-    agent_name: 'Subscription Agent',
-    tool_name: 'subscription_detection_tool',
-    status: 'info',
-    summary: 'Evaluating active subscriptions, dormancy (>60 days), and overlapping services',
-  });
-
-  const subAnalysis = subscription_detection_tool(state.user_id);
-
-  // Record dormant subscriptions
-  for (const sub of subAnalysis.dormant_subscriptions) {
-    const issue = {
-      id: `anom_${crypto.randomUUID().slice(0, 8)}`,
-      type: 'dormant_subscription',
-      merchant: sub.merchant,
-      amount: sub.current_price,
-      currency: 'INR',
-      severity: 'medium' as const,
-      evidence: `Subscription active at ₹${sub.current_price}/mo but zero member check-ins or logins detected since ${sub.last_active_date} (>90 days idle).`,
-      explanation_chain: [
-        `Identified active recurring payment for ${sub.merchant} (₹${sub.current_price}/mo).`,
-        "Queried partner API for usage metrics.",
-        `Received last_active_date: ${sub.last_active_date}.`,
-        "Calculated >90 days of dormancy. Flagged as wasted spend."
-      ],
-      confidence: 0.92,
-    };
-    state.detected_issues.push(issue);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'tool_result',
-      agent_name: 'Subscription Agent',
-      tool_name: 'subscription_detection_tool',
-      status: 'warning',
-      summary: `Dormant subscription flagged: ${sub.merchant} (₹${sub.current_price}/mo, inactive since ${sub.last_active_date})`,
-      details_json: issue,
-    });
-  }
-
-  // Redundant subscriptions (e.g. duplicate cloud storage or duplicate music)
-  for (const red of subAnalysis.redundant_subscription_groups) {
-    const issue = {
-      id: `anom_${crypto.randomUUID().slice(0, 8)}`,
-      type: 'duplicate_subscription',
-      merchant: red.groupName.toUpperCase(),
-      amount: red.potential_saving,
-      currency: 'INR',
-      severity: 'low' as const,
-      evidence: `Multiple redundant services detected in category "${red.groupName}": ${red.active_services.map(s => s.merchant).join(', ')}.`,
-      explanation_chain: [
-        "Clustered active subscriptions by service category.",
-        `Found ${red.active_services.length} active services in "${red.groupName}".`,
-        `Services: ${red.active_services.map(s => s.merchant).join(', ')}.`,
-        "Since they provide identical utilities, flagged one for cancellation to eliminate redundancy."
-      ],
-      confidence: 0.90,
-    };
-    state.detected_issues.push(issue);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'tool_result',
-      agent_name: 'Subscription Agent',
-      tool_name: 'subscription_detection_tool',
-      status: 'warning',
-      summary: `Redundant subscription group: ${red.groupName} (${red.active_services.length} overlapping plans)`,
-      details_json: issue,
-    });
-  }
-}
-
-/**
- * D. Investigation Agent with Resilient Failure Handling
- */
-export async function runInvestigationAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'decision',
-    agent_name: 'Investigation Agent',
-    tool_name: 'merchant_verification_tool',
-    status: 'info',
-    summary: 'Selecting verification tools and validating cancellation/dispute protocols',
-  });
-
-  const verifiedMerchants: Record<string, any> = {};
-
-  for (const issue of state.detected_issues) {
-    try {
-      // Intentionally pass forceFail if requested by demo
-      const shouldForceFail = Boolean(options.forceToolFailure && issue.merchant.toLowerCase().includes('cult.fit'));
-
-      const result = merchant_verification_tool(issue.merchant, { forceFail: shouldForceFail });
-      verifiedMerchants[issue.merchant] = result;
-
-      logEvent(options, {
-        id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-        run_id: runId,
-        timestamp: new Date().toISOString(),
-        event_type: 'tool_result',
-        agent_name: 'Investigation Agent',
-        tool_name: 'merchant_verification_tool',
-        status: 'success',
-        summary: `Verified terms for ${issue.merchant}: ${result.cancellation_method}`,
-        details_json: result,
-      });
-    } catch (err: any) {
-      // Failure Handling Strategy
-      state.errors.push({
-        timestamp: new Date().toISOString(),
-        tool_or_agent: 'merchant_verification_tool',
-        error_message: err.message || 'Tool execution failed',
-        fallback_action_taken: 'Evaluated alternative data: Switch to local transaction history & public dispute templates.',
-      });
-
-      logEvent(options, {
-        id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-        run_id: runId,
-        timestamp: new Date().toISOString(),
-        event_type: 'error',
-        agent_name: 'Investigation Agent',
-        tool_name: 'merchant_verification_tool',
-        status: 'error',
-        summary: `Primary verification tool unavailable for ${issue.merchant} (Gateway 503) -> Agent selected fallback investigation strategy.`,
-        details_json: {
-          error: err.message,
-          fallback: 'Used local bank statement history and standard consumer protection guidelines.',
-        },
-      });
-
-      // Fallback investigation
-      verifiedMerchants[issue.merchant] = {
-        merchant: issue.merchant,
-        status: 'verified_via_fallback',
-        cancellation_method: 'Fallback: Direct bank mandate stop & email notice',
-        refund_policy: 'Consumer Protection Rules 2020: 30-day billing dispute right',
-        fallback_used: true,
-      };
-    }
-  }
-
-  return verifiedMerchants;
-}
-
-/**
- * E. Action Agent (Creates Prioritized Action Plan & Consequential Approval Checkpoints)
- */
-export async function runActionAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'plan',
-    agent_name: 'Action Agent',
-    tool_name: 'savings_calculator_tool',
-    status: 'info',
-    summary: 'Formulating prioritized remediation action plan with human approval gates',
-  });
-
-  const actions: AgentRunState['actions'] = [];
-
-  // Check user constraints (e.g. retain Spotify music)
-  const constraints = state.user_goal.constraints || [];
-  const keepSpotify = constraints.includes('retain_daily_music_spotify') || options.userConstraintOverride?.includes('spotify');
-
-  // 1. Action: Claim duplicate Uber charge refund
-  const dupUber = state.detected_issues.find(i => i.type === 'duplicate_charge');
-  if (dupUber) {
-    actions.push({
-      id: `act_${crypto.randomUUID().slice(0, 8)}`,
-      target_merchant: dupUber.merchant,
-      action_type: 'dispute_charge',
-      description: `Dispute duplicate ride charge of ₹${dupUber.amount}. Instant automated claim eligible via Uber Support.`,
-      priority: 1,
-      estimated_saving: dupUber.amount,
-      currency: 'INR',
-      requires_approval: true,
-      approval_status: 'pending',
-      execution_status: 'pending',
-      template_letter: `Subject: Dispute of Duplicate Billing - Ride ID #${dupUber.id}\n\nDear Uber Support,\n\nI noticed two identical charges of ₹${dupUber.amount} billed on my account within minutes. Please reverse the duplicate debit immediately.\n\nThank you,\nAlex Mercer`,
-    });
-  }
-
-  // 2. Action: Cancel dormant Cult.Fit gym membership
-  const dormantGym = state.detected_issues.find(i => i.merchant.includes('Cult.Fit'));
-  if (dormantGym) {
-    actions.push({
-      id: `act_${crypto.randomUUID().slice(0, 8)}`,
-      target_merchant: dormantGym.merchant,
-      action_type: 'cancel_subscription',
-      description: `Cancel inactive gym membership (₹1,850/mo). User has not checked in for >90 days.`,
-      priority: 2,
-      estimated_saving: 1850.0,
-      currency: 'INR',
-      requires_approval: true,
-      approval_status: 'pending',
-      execution_status: 'pending',
-      template_letter: `Subject: Cancellation & Refund Request for Membership\n\nTo Cult.Fit Billing,\n\nPlease terminate recurring renewal for my ELITE membership effective immediately, as this facility has been idle since May 2026.\n\nRegards,\nAlex Mercer`,
-    });
-  }
-
-  // 3. Action: Cancel redundant Apple Music (unless constraint forbids)
-  const redMusic = state.detected_issues.find(i => i.evidence.includes('Apple Music') || i.merchant.includes('MUSIC'));
-  if (redMusic && !constraints.includes('keep_apple_music')) {
-    actions.push({
-      id: `act_${crypto.randomUUID().slice(0, 8)}`,
-      target_merchant: 'Apple Music Family',
-      action_type: 'cancel_subscription',
-      description: `Cancel redundant Apple Music Family (₹179/mo) since Spotify is already active with daily listening history.`,
-      priority: 3,
-      estimated_saving: 179.0,
-      currency: 'INR',
-      requires_approval: true,
-      approval_status: 'pending',
-      execution_status: 'pending',
-    });
-  }
-
-  // 4. Action: Cancel redundant Dropbox storage
-  actions.push({
-    id: `act_${crypto.randomUUID().slice(0, 8)}`,
-    target_merchant: 'Dropbox Plus',
-    action_type: 'cancel_subscription',
-    description: `Cancel unused Dropbox Plus (₹820/mo). File sync is dormant; Google One already active for primary cloud storage.`,
-    priority: 4,
-    estimated_saving: 820.0,
-    currency: 'INR',
-    requires_approval: true,
-    approval_status: 'pending',
-    execution_status: 'pending',
-  });
-
-  // 5. Action: Cancel dormant LinkedIn Premium
-  actions.push({
-    id: `act_${crypto.randomUUID().slice(0, 8)}`,
-    target_merchant: 'LinkedIn Premium Career',
-    action_type: 'cancel_subscription',
-    description: `Cancel LinkedIn Career booster (₹1,550/mo). No active job applications or InMails sent since June.`,
-    priority: 5,
-    estimated_saving: 1550.0,
-    currency: 'INR',
-    requires_approval: true,
-    approval_status: 'pending',
-    execution_status: 'pending',
-  });
-
-  state.actions = actions;
-
-  // Persist actions to database
-  dbHelpers.saveActions(actions, runId, state.goal_id);
-
-  return actions;
-}
-
-/**
- * F. Evaluation Agent & G. Replanning Agent
- */
-export async function runEvaluationAndReplanningAgent(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  state.current_phase = 'EVALUATE';
-
-  const calc = savings_calculator_tool(state.actions);
-  const target = state.user_goal.target_amount || 5000.0;
-  const projected = calc.total_monthly_savings;
-  const gap = target - projected;
-
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'evaluation',
-    agent_name: 'Evaluation Agent',
-    tool_name: 'savings_calculator_tool',
-    status: projected >= target ? 'success' : 'warning',
-    summary: `Evaluation: Identified monthly savings of ₹${projected.toFixed(2)} vs target goal of ₹${target.toFixed(2)} (Gap: ₹${Math.max(0, gap).toFixed(2)})`,
-    details_json: {
-      projected_monthly_savings: projected,
-      target_savings: target,
-      gap,
-      goal_met: projected >= target,
-    },
-  });
-
-  state.evaluation = {
-    goal_achieved: projected >= target,
-    target_savings: target,
-    projected_savings: projected,
-    currency: state.user_goal.currency || 'INR',
-    gap: Math.max(0, gap),
-    remaining_anomalies_count: state.detected_issues.length,
-    replanning_needed: gap > 0,
-    reason: gap > 0
-      ? `Current actions achieve ₹${projected}/mo, which is ₹${gap} short of the ₹${target} goal.`
-      : `Target goal achieved! Full ₹${target} reduction unlocked without impacting essential utilities.`,
-  };
-
-  // If target not achieved, invoke Replanning Agent automatically!
-  if (gap > 0 || options.userConstraintOverride) {
-    state.current_phase = 'ADAPT_REPLAN';
-    state.status = 'replanning';
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'replan',
-      agent_name: 'Replanning Agent',
-      tool_name: 'budget_analysis_tool',
-      status: 'info',
-      summary: `Autonomous Replan Triggered: Savings gap of ₹${gap.toFixed(2)} detected. Expanding investigation to infrastructure waste & tier downgrades.`,
-    });
-
-    // Replanning Strategy:
-    // Add AWS runaway EBS storage cleanup (₹2,073.73/mo saving)
-    // Add Netflix 4K -> Standard tier downgrade (₹150/mo saving)
-    const awsOrphanAction = {
-      id: `act_${crypto.randomUUID().slice(0, 8)}`,
-      target_merchant: 'AWS Cloud Services',
-      action_type: 'budget_cap' as const,
-      description: `Purge 4 unattached orphan EBS volumes & test snapshots on AWS (saves ₹2,073.73/mo).`,
-      priority: 1,
-      estimated_saving: 2073.73,
-      currency: 'INR',
-      requires_approval: true,
-      approval_status: 'pending' as const,
-      execution_status: 'pending' as const,
-    };
-
-    const netflixDowngradeAction = {
-      id: `act_${crypto.randomUUID().slice(0, 8)}`,
-      target_merchant: 'Netflix Premium 4K',
-      action_type: 'downgrade_plan' as const,
-      description: `Downgrade Netflix from 4K (₹649/mo) to Full HD Standard tier (₹499/mo) to offset recent price hike (saves ₹150/mo).`,
-      priority: 6,
-      estimated_saving: 150.0,
-      currency: 'INR',
-      requires_approval: true,
-      approval_status: 'pending' as const,
-      execution_status: 'pending' as const,
-    };
-
-    state.actions.unshift(awsOrphanAction);
-    state.actions.push(netflixDowngradeAction);
-
-    // Recalculate
-    const newCalc = savings_calculator_tool(state.actions);
-    const newSavings = newCalc.total_monthly_savings;
-
-    state.replanning_status = {
-      is_replanning: true,
-      replan_count: 1,
-      previous_plan_savings: projected,
-      new_plan_savings: newSavings,
-      strategy_change: 'Expanded scope to cloud infrastructure waste & streaming plan tier optimization.',
-    };
-
-    state.evaluation = {
-      goal_achieved: newSavings >= target,
-      target_savings: target,
-      projected_savings: newSavings,
-      currency: state.user_goal.currency || 'INR',
-      gap: Math.max(0, target - newSavings),
-      remaining_anomalies_count: state.detected_issues.length,
-      replanning_needed: false,
-      reason: `Replanned plan achieves ₹${newSavings.toFixed(2)}/mo (exceeding ₹${target} target by ₹${(newSavings - target).toFixed(2)}).`,
-    };
-
-    dbHelpers.saveActions(state.actions, runId, state.goal_id);
-
-    logEvent(options, {
-      id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-      run_id: runId,
-      timestamp: new Date().toISOString(),
-      event_type: 'replan',
-      agent_name: 'Replanning Agent',
-      tool_name: 'savings_calculator_tool',
-      status: 'success',
-      summary: `New Replan Successful: Total monthly savings increased to ₹${newSavings.toFixed(2)}/mo (Target ₹${target.toFixed(2)} achieved!)`,
-      details_json: state.replanning_status,
-    });
-  }
-
-  // Final Outcome
-  state.current_phase = 'OUTCOME';
-  state.status = 'waiting_for_approval';
-  state.final_outcome = {
-    summary: `Agentic audit completed successfully. Prepared ${state.actions.length} prioritized actions securing ₹${state.evaluation.projected_savings.toFixed(2)}/mo (₹${(state.evaluation.projected_savings * 12).toFixed(2)}/yr) without impacting essential power or fiber broadband. Consequential actions require your approval below.`,
-    monthly_savings: state.evaluation.projected_savings,
-    annual_savings: state.evaluation.projected_savings * 12,
-    currency: state.user_goal.currency || 'INR',
-    actions_count: state.actions.length,
-    achieved: state.evaluation.goal_achieved,
-  };
-
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'outcome',
-    agent_name: 'Evaluation Agent',
-    status: 'success',
-    summary: `Final Outcome: Goal achieved with ₹${state.evaluation.projected_savings.toFixed(2)}/mo potential relief. Waiting for user approvals.`,
-    details_json: state.final_outcome,
-  });
-
-  dbHelpers.saveAgentRun(state);
-  return state;
-}
-
-async function runSupervisorLoop(
-  runId: string,
-  state: AgentRunState,
-  options: WorkflowOptions
-) {
-  const maxIterations = 6;
-
-  for (let iteration = 1; iteration <= maxIterations; iteration++) {
-    const choice = await chooseNextTool(state, options.aiInstance);
-    if (!choice) {
-      state.next_action = undefined;
-      logEvent(options, {
-        run_id: runId,
-        event_type: 'decision',
-        agent_name: 'Supervisor Agent',
-        status: 'success',
-        summary: 'Supervisor determined that the available evidence is sufficient for specialist analysis.',
-        details_json: { iteration, tool_history: state.tool_history },
-      });
-      return;
-    }
-
-    state.next_action = choice;
-    state.reasoning_trace.push({
-      iteration,
-      observation: `Evidence available: ${state.observations.length} observations, ${state.tool_history.length} completed tools.`,
-      decision: `Select ${choice.tool}`,
-      selected_tool: choice.tool,
-      rationale: choice.rationale,
-      confidence: choice.confidence,
-      timestamp: new Date().toISOString(),
-    });
-    state.selected_tools.push({ tool: choice.tool, input: { user_id: state.user_id }, status: 'planned' });
-
-    logEvent(options, {
-      run_id: runId,
-      event_type: 'decision',
-      agent_name: 'Supervisor Agent',
-      tool_name: choice.tool,
-      status: 'info',
-      summary: `Supervisor selected ${choice.tool}: ${choice.rationale}`,
-      details_json: { iteration, confidence: choice.confidence },
-    });
-
-    const selectedTool = state.selected_tools[state.selected_tools.length - 1];
-    selectedTool.status = 'called';
-
-    try {
-      const execution = await executeSupervisedTool(state, choice);
-      selectedTool.status = 'succeeded';
-      state.tool_history.push({
-        tool: choice.tool,
-        status: 'succeeded',
-        summary: execution.summary,
-        timestamp: new Date().toISOString(),
-      });
-      state.observations.push({
-        category: choice.tool.replace(/^find_|^inspect_|^analyze_/, '').replace(/_anomalies|_charges/, ''),
-        summary: execution.summary,
-        data: execution.result,
-        timestamp: new Date().toISOString(),
-      });
-      logEvent(options, {
-        run_id: runId,
-        event_type: 'tool_result',
-        agent_name: 'Supervisor Agent',
-        tool_name: choice.tool,
-        status: 'success',
-        summary: execution.summary,
-      });
-    } catch (err: any) {
-      selectedTool.status = 'failed';
-      selectedTool.fallback_used = true;
-      state.tool_history.push({
-        tool: choice.tool,
-        status: 'failed',
-        summary: err.message || 'Tool execution failed.',
-        timestamp: new Date().toISOString(),
-      });
-      state.errors.push({
-        timestamp: new Date().toISOString(),
-        tool_or_agent: choice.tool,
-        error_message: err.message || 'Tool execution failed.',
-        fallback_action_taken: 'Supervisor recorded the failure and selected another read-only capability.',
-      });
-      logEvent(options, {
-        run_id: runId,
-        event_type: 'error',
-        agent_name: 'Supervisor Agent',
-        tool_name: choice.tool,
-        status: 'error',
-        summary: `${choice.tool} failed; supervisor will continue with another capability.`,
-        details_json: { error: err.message },
-      });
-    }
-
-    dbHelpers.saveAgentRun(state);
-  }
-
-  state.next_action = undefined;
-  logEvent(options, {
-    run_id: runId,
-    event_type: 'decision',
-    agent_name: 'Supervisor Agent',
-    status: 'warning',
-    summary: `Supervisor stopped after ${maxIterations} bounded iterations to prevent an unbounded agent loop.`,
-  });
-}
-
-/**
- * Main State-Based Agent Workflow Runner
- */
-export async function runAgenticWorkflow(
-  goalId: string = 'goal_hackathon_demo',
-  customGoalTitle?: string,
-  options: WorkflowOptions = {}
-): Promise<AgentRunState> {
-  const runId = `run_${crypto.randomUUID().slice(0, 8)}`;
-  const userId = options.userId || DEFAULT_USER_ID;
-
-  let goal = dbHelpers.getGoalById(goalId);
-  if (!goal) {
-    goal = dbHelpers.createGoal({
-      id: goalId,
-      user_id: userId,
-      title: customGoalTitle || 'Reduce my unnecessary monthly expenses by ₹5,000 without affecting essential services',
-      target_saving_amount: 5000.0,
-      currency: 'INR',
-      constraints: ['keep_essential_electricity', 'keep_primary_fiber_internet'],
-    });
-  }
-
-  // Initialize State
-  const state: AgentRunState = {
-    run_id: runId,
-    goal_id: goal.id,
+import { AgentEvent, AgentRunState } from '../types';
+import { WorkflowOptions } from './contracts';
+import { logAgentEvent } from './events';
+import { runBillAnalyzerAgent } from './billAnalyzerAgent';
+import { runAnomalyDetectionAgent } from './anomalyAgent';
+import { runSubscriptionAgent } from './subscriptionAgent';
+import { runInvestigationAgent } from './investigationAgent';
+import { runActionAgent } from './actionAgent';
+import { runEvaluationAgent } from './evaluationAgent';
+import { runReplanningAgent } from './replanningAgent';
+import { runSupervisorLoop } from './supervisor';
+
+export type { WorkflowOptions } from './contracts';
+export { runBillAnalyzerAgent } from './billAnalyzerAgent';
+export { runAnomalyDetectionAgent } from './anomalyAgent';
+export { runSubscriptionAgent } from './subscriptionAgent';
+export { runInvestigationAgent } from './investigationAgent';
+export { runActionAgent } from './actionAgent';
+export { runEvaluationAgent } from './evaluationAgent';
+export { runReplanningAgent } from './replanningAgent';
+
+function createInitialState(goalId: string, userId: string, goal: any): AgentRunState {
+  return {
+    run_id: `run_${crypto.randomUUID().slice(0, 8)}`,
+    goal_id: goalId,
     user_id: userId,
     status: 'running',
     current_phase: 'OBSERVE',
-    user_goal: {
-      title: customGoalTitle || goal.title,
-      target_amount: goal.target_saving_amount,
-      currency: goal.currency,
-      constraints: goal.constraints,
-    },
+    user_goal: { title: goal.title, target_amount: goal.target_saving_amount, currency: goal.currency, constraints: goal.constraints },
     observations: [],
     current_plan: [
-      { step: 1, description: 'Ingest and observe billing transactions & active subscriptions', agent: 'Bill Analyzer Agent', status: 'pending' },
-      { step: 2, description: 'Detect billing anomalies, duplicate debits & sudden price increases', agent: 'Anomaly Detection Agent', status: 'pending' },
-      { step: 3, description: 'Audit subscription recurrence, dormancy & service overlaps', agent: 'Subscription Agent', status: 'pending' },
-      { step: 4, description: 'Investigate refund terms & merchant dispute protocols with failure fallback', agent: 'Investigation Agent', status: 'pending' },
-      { step: 5, description: 'Generate prioritized action plan with explicit human approval checkpoints', agent: 'Action Agent', status: 'pending' },
-      { step: 6, description: 'Evaluate savings against target ₹5,000 goal and auto-replan if gap remains', agent: 'Evaluation & Replanning Agent', status: 'pending' },
+      { step: 1, description: 'Ingest and observe billing transactions and active subscriptions', agent: 'Bill Analyzer Agent', status: 'pending' },
+      { step: 2, description: 'Detect duplicate debits, price changes, and spending anomalies', agent: 'Anomaly Detection Agent', status: 'pending' },
+      { step: 3, description: 'Audit dormancy and overlapping subscription services', agent: 'Subscription Agent', status: 'pending' },
+      { step: 4, description: 'Verify merchant terms with fallback recovery', agent: 'Investigation Agent', status: 'pending' },
+      { step: 5, description: 'Generate simulated actions with human approval gates', agent: 'Action Agent', status: 'pending' },
+      { step: 6, description: 'Evaluate savings and search for additional opportunities', agent: 'Evaluation and Replanning Agents', status: 'pending' },
     ],
     detected_issues: [],
     selected_tools: [],
     reasoning_trace: [],
     tool_history: [],
+    candidate_plans: [],
+    agent_metrics: { iterations: 0, tools_used: 0, failed_tools: 0, replans: 0 },
     actions: [],
     action_results: [],
-    evaluation: {
-      goal_achieved: false,
-      target_savings: goal.target_saving_amount,
-      projected_savings: 0,
-      currency: goal.currency,
-      gap: goal.target_saving_amount,
-      remaining_anomalies_count: 0,
-      replanning_needed: false,
-      reason: 'Workflow initialized',
-    },
+    evaluation: { goal_achieved: false, target_savings: goal.target_saving_amount, projected_savings: 0, currency: goal.currency, gap: goal.target_saving_amount, remaining_anomalies_count: 0, replanning_needed: false, reason: 'Workflow initialized.' },
     confidence: 0.95,
     errors: [],
-    replanning_status: {
-      is_replanning: false,
-      replan_count: 0,
-      previous_plan_savings: 0,
-      new_plan_savings: 0,
-      strategy_change: 'None',
-    },
+    replanning_status: { is_replanning: false, replan_count: 0, previous_plan_savings: 0, new_plan_savings: 0, strategy_change: 'None' },
   };
+}
 
+export async function runAgenticWorkflow(goalId = 'goal_hackathon_demo', customGoalTitle?: string, options: WorkflowOptions = {}): Promise<AgentRunState> {
+  const userId = options.userId || DEFAULT_USER_ID;
+  let goal = dbHelpers.getGoalById(goalId);
+  if (!goal) {
+    goal = dbHelpers.createGoal({ id: goalId, user_id: userId, title: customGoalTitle || 'Reduce my unnecessary monthly expenses by ₹5,000 without affecting essential services', target_saving_amount: 5000, currency: 'INR', constraints: ['keep_essential_electricity', 'keep_primary_fiber_internet', 'retain_daily_music_spotify'] });
+  }
+  const state = createInitialState(goal.id, userId, goal);
+  if (customGoalTitle) state.user_goal.title = customGoalTitle;
   dbHelpers.saveAgentRun(state);
+  logAgentEvent(options, { run_id: state.run_id, event_type: 'goal_set', agent_name: 'BillGuard Orchestrator', status: 'info', summary: `Goal activated: "${state.user_goal.title}"`, details_json: state.user_goal });
 
-  logEvent(options, {
-    id: `evt_${crypto.randomUUID().slice(0, 8)}`,
-    run_id: runId,
-    timestamp: new Date().toISOString(),
-    event_type: 'goal_set',
-    agent_name: 'BillGuard Orchestrator',
-    status: 'info',
-    summary: `Goal Activated: "${state.user_goal.title}" (Target: ₹${state.user_goal.target_amount})`,
-    details_json: state.user_goal,
-  });
-
-  // The supervisor chooses read-only capabilities from current evidence before
-  // specialist agents formulate findings and consequential actions.
-  await runSupervisorLoop(runId, state, options);
-
-  // Phase 1: OBSERVE & PLAN
+  await runSupervisorLoop(state.run_id, state, options);
+  state.agent_metrics.iterations = state.reasoning_trace.length;
+  state.agent_metrics.tools_used = state.tool_history.length;
+  state.agent_metrics.failed_tools = state.tool_history.filter(tool => tool.status === 'failed').length;
   state.current_phase = 'OBSERVE';
-  await runBillAnalyzerAgent(runId, state, options);
+  await runBillAnalyzerAgent(state.run_id, state, options);
   state.current_plan[0].status = 'completed';
-
-  // Phase 2: ANOMALY DETECTION
   state.current_phase = 'DECIDE';
-  await runAnomalyDetectionAgent(runId, state, options);
+  await runAnomalyDetectionAgent(state.run_id, state, options);
   state.current_plan[1].status = 'completed';
-
-  // Phase 3: SUBSCRIPTION DETECTION
-  await runSubscriptionAgent(runId, state, options);
+  await runSubscriptionAgent(state.run_id, state, options);
   state.current_plan[2].status = 'completed';
-
-  // Phase 4: INVESTIGATION & TOOLS
   state.current_phase = 'USE_TOOLS';
-  await runInvestigationAgent(runId, state, options);
+  await runInvestigationAgent(state.run_id, state, options);
   state.current_plan[3].status = 'completed';
-
-  // Phase 5: EXECUTE ACTIONS
   state.current_phase = 'EXECUTE';
-  await runActionAgent(runId, state, options);
+  await runActionAgent(state.run_id, state, options);
   state.current_plan[4].status = 'completed';
-
-  // Phase 6 & 7: EVALUATE & REPLAN
-  await runEvaluationAndReplanningAgent(runId, state, options);
+  state.current_phase = 'EVALUATE';
+  await runEvaluationAgent(state.run_id, state, options);
+  if (state.evaluation.replanning_needed || options.userConstraintOverride) {
+    state.current_phase = 'ADAPT_REPLAN';
+    state.status = 'replanning';
+    await runReplanningAgent(state.run_id, state, options);
+    state.agent_metrics.replans = state.replanning_status.replan_count;
+  }
   state.current_plan[5].status = 'completed';
-
+  state.current_phase = 'OUTCOME';
+  state.status = 'waiting_for_approval';
+  state.final_outcome = {
+    summary: `Audit completed with ${state.actions.length} approval-required simulated actions and projected ${state.user_goal.currency} ${state.evaluation.projected_savings.toFixed(2)} monthly savings.`,
+    monthly_savings: state.evaluation.projected_savings,
+    annual_savings: state.evaluation.projected_savings * 12,
+    currency: state.user_goal.currency,
+    actions_count: state.actions.length,
+    achieved: state.evaluation.goal_achieved,
+  };
+  logAgentEvent(options, { run_id: state.run_id, event_type: 'outcome', agent_name: 'BillGuard Orchestrator', status: 'success', summary: state.final_outcome.summary, details_json: state.final_outcome });
+  dbHelpers.saveAgentRun(state);
   return state;
 }
+
+export type { AgentEvent };
