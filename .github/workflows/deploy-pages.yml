@@ -36,6 +36,19 @@ jobs:
           GITHUB_ACTIONS: true
         run: npm run build:pages
 
+      - name: Verify built frontend
+        run: |
+          test -f dist/index.html
+          if grep -q '/src/main.tsx' dist/index.html; then
+            echo 'Build still references source /src/main.tsx; refusing to deploy raw source.'
+            exit 1
+          fi
+          echo 'Built asset references:'
+          grep -oE 'src="[^"]+\.js"' dist/index.html || true
+
+      - name: Add SPA fallback
+        run: cp dist/index.html dist/404.html
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
