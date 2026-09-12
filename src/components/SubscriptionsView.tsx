@@ -59,14 +59,14 @@ export const SubscriptionsView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-4">
           <span className="text-[11px] text-[#71717A] uppercase font-bold tracking-wider">Active Monthly Recurring</span>
           <p className="text-xl font-bold text-[#FAFAFA] mt-1">₹{totalMonthly.toLocaleString()}</p>
           <span className="text-[11px] text-[#A1A1AA]">{subscriptions.filter((s) => s.status === 'active').length} active memberships</span>
         </div>
 
-        <div className="bg-[#18181B] border border-amber-500/20 rounded-2xl p-4">
+        <div className="min-w-0 bg-[#18181B] border border-amber-500/20 rounded-2xl p-3 sm:p-4">
           <span className="text-[11px] text-amber-400 uppercase font-bold tracking-wider flex items-center gap-1">
             <AlertTriangle className="w-3.5 h-3.5" /> Dormant Subscriptions
           </span>
@@ -74,7 +74,7 @@ export const SubscriptionsView: React.FC = () => {
           <span className="text-[11px] text-[#A1A1AA]">{dormantSubs.length} idle services flagged (&gt;90 days)</span>
         </div>
 
-        <div className="bg-[#18181B] border border-emerald-500/20 rounded-2xl p-4">
+        <div className="min-w-0 bg-[#18181B] border border-emerald-500/20 rounded-2xl p-3 sm:p-4">
           <span className="text-[11px] text-emerald-400 uppercase font-bold tracking-wider">Annual Recyclable Savings</span>
           <p className="text-xl font-bold text-emerald-400 mt-1">₹{(potentialDormantSavings * 12).toLocaleString()}/yr</p>
           <span className="text-[11px] text-[#A1A1AA]">Guaranteed relief without service loss</span>
@@ -89,7 +89,7 @@ export const SubscriptionsView: React.FC = () => {
       )}
 
       {/* Subscriptions List */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-5">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-sm font-bold text-[#FAFAFA] flex items-center gap-2">
@@ -102,7 +102,7 @@ export const SubscriptionsView: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-[#27272A] text-[#71717A] uppercase text-[10px] tracking-wider">
               <tr>
@@ -180,6 +180,49 @@ export const SubscriptionsView: React.FC = () => {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="space-y-3 sm:hidden">
+          {subscriptions.map((sub) => {
+            const isDormant = Boolean(sub.is_dormant);
+            const hasHike = sub.previous_price && sub.current_price > sub.previous_price;
+            return (
+              <div key={sub.id} className="rounded-xl border border-[#27272A] bg-[#09090B] p-3">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-[#FAFAFA]">{sub.merchant}</div>
+                    <div className="mt-1 truncate text-[10px] text-[#71717A]">{sub.plan_name}</div>
+                  </div>
+                  <div className="shrink-0 text-right font-semibold text-[#FAFAFA]">â‚¹{sub.current_price}/mo</div>
+                </div>
+                {hasHike && (
+                  <div className="mt-2 text-[10px] text-amber-400">
+                    Was â‚¹{sub.previous_price} (+{Math.round(((sub.current_price - (sub.previous_price || 0)) / (sub.previous_price || 1)) * 100)}%)
+                  </div>
+                )}
+                <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#A1A1AA]">
+                  <span>Last active</span>
+                  <span className="text-right font-mono">{sub.last_active_date}</span>
+                  <span>Renewal</span>
+                  <span className="text-right font-mono">{sub.renewal_date}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isDormant ? 'border border-red-500/20 bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+                    {isDormant ? 'Dormant Service' : 'Active'}
+                  </span>
+                  {isDormant && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancelClick(sub)}
+                      className="inline-flex items-center gap-1 rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-400 transition-all hover:text-amber-300"
+                    >
+                      <Ban className="w-3 h-3" /> Queue Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

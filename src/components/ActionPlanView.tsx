@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActionPlanItem, ActionPriority } from '../types';
-import { ListChecks, Check, Clock, DollarSign, UserCheck, ShieldAlert, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Check, Clock, DollarSign, UserCheck, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 interface ActionPlanViewProps {
   actionPlan: ActionPlanItem[];
@@ -55,11 +55,11 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
   const completedCount = Object.values(completedItems).filter(Boolean).length;
 
   return (
-    <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4 sm:p-5">
+    <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-0.5">
+        <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 mb-0.5">
             <h2 className="text-[#A1A1AA] text-xs uppercase tracking-wider font-bold">
               Prioritized Action Plan
             </h2>
@@ -73,9 +73,9 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
         </div>
 
         {actionPlan.length > 0 && (
-          <div className="text-xs text-[#A1A1AA] font-medium bg-[#09090B] px-3.5 py-2 rounded-xl border border-[#27272A] flex items-center gap-3">
+          <div className="w-full text-xs text-[#A1A1AA] font-medium bg-[#09090B] px-3 py-2 rounded-xl border border-[#27272A] flex items-center gap-3 sm:w-auto">
             <span>Progress: <strong className="text-[#FAFAFA]">{completedCount} of {actionPlan.length}</strong> done</span>
-            <div className="w-20 h-1.5 bg-[#27272A] rounded-full overflow-hidden">
+            <div className="min-w-16 flex-1 sm:w-20 sm:flex-none h-1.5 bg-[#27272A] rounded-full overflow-hidden">
               <div 
                 className="h-full bg-blue-500 transition-all duration-300 rounded-full"
                 style={{ width: `${(completedCount / actionPlan.length) * 100}%` }}
@@ -99,13 +99,13 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
             return (
               <div
                 key={itemId}
-                className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                className={`min-w-0 p-3 sm:p-5 rounded-2xl border transition-all ${
                   isDone 
                     ? 'bg-[#09090B]/60 border-[#27272A] opacity-60' 
                     : 'bg-[#09090B] border-[#27272A] hover:border-zinc-700'
                 }`}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                   <button
                     type="button"
                     onClick={() => toggleCompleted(itemId)}
@@ -118,21 +118,21 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
                     <Check className="w-4 h-4 stroke-[3]" />
                   </button>
 
-                  <div className="flex-1 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex min-w-0 flex-wrap items-center gap-2">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${pBadge.bg}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${pBadge.dot}`} />
                         {pBadge.label}
                       </span>
 
                       {item.target_merchant && (
-                        <span className="text-xs font-semibold text-[#FAFAFA] bg-[#18181B] px-2.5 py-0.5 rounded-md border border-[#27272A]">
+                        <span className="max-w-full break-words text-xs font-semibold text-[#FAFAFA] bg-[#18181B] px-2.5 py-0.5 rounded-md border border-[#27272A]">
                           {item.target_merchant}
                         </span>
                       )}
 
                       {item.estimated_savings && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-400 bg-green-500/10 px-2.5 py-0.5 rounded-md border border-green-500/20">
+                        <span className="inline-flex max-w-full items-center gap-1 text-xs font-semibold text-green-400 bg-green-500/10 px-2.5 py-0.5 rounded-md border border-green-500/20">
                           <DollarSign className="w-3 h-3" />
                           Est. Savings: {item.estimated_savings}
                         </span>
@@ -146,7 +146,7 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
                       )}
                     </div>
 
-                    <h3 className={`text-base font-semibold text-[#FAFAFA] ${isDone ? 'line-through text-[#71717A]' : ''}`}>
+                    <h3 className={`text-sm sm:text-base font-semibold text-[#FAFAFA] break-words ${isDone ? 'line-through text-[#71717A]' : ''}`}>
                       {item.action}
                     </h3>
 
@@ -159,7 +159,7 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
                           {item.recommended_steps.map((step, sIdx) => (
                             <li key={sIdx} className="text-xs text-[#A1A1AA] flex items-start gap-2">
                               <span className="text-blue-400 font-bold shrink-0">&bull;</span>
-                              <span>{step}</span>
+                              <span className="min-w-0 break-words">{step}</span>
                             </li>
                           ))}
                         </ul>
@@ -167,8 +167,8 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
                     )}
 
                     {/* Human-in-the-Loop Safety Gate Controls */}
-                    <div className="pt-3 border-t border-[#27272A] flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-[11px]">
+                    <div className="pt-3 border-t border-[#27272A] flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-2">
+                      <div className="min-w-0 flex items-center gap-1.5 text-[11px]">
                         {approvedItemIds[itemId] ? (
                           <span className="text-emerald-400 font-semibold flex items-center gap-1 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
                             <CheckCircle2 className="w-3 h-3" />
@@ -186,7 +186,7 @@ export const ActionPlanView: React.FC<ActionPlanViewProps> = ({
                         <button
                           type="button"
                           onClick={() => onReviewApproval(item)}
-                          className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+                          className={`w-full justify-center text-xs font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 sm:w-auto ${
                             approvedItemIds[itemId]
                               ? 'bg-[#18181B] text-[#A1A1AA] hover:text-white border border-[#27272A]'
                               : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_12px_rgba(16,185,129,0.3)]'

@@ -100,6 +100,45 @@ npm run start
 
 The build creates the Vite frontend and bundles the Express server into `dist/server.cjs`.
 
+### Render Web Service deployment
+
+Render can host the full BillGuard application as a Web Service. This is the recommended free demo deployment when you need both the React frontend and the Express backend APIs online.
+
+Create a new **Web Service** on Render and connect this repository. Use these settings:
+
+| Setting | Value |
+| --- | --- |
+| Runtime | Node |
+| Build Command | `npm ci && npm run build` |
+| Start Command | `npm run start` |
+
+Add these environment variables in Render:
+
+```env
+NODE_ENV=production
+PORT=10000
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+No `VITE_API_URL` or frontend API base URL change is needed. The Express server already serves the built React app from `dist/` and exposes the backend routes under the same origin, such as `/api/health`, `/api/analyze`, `/api/chat`, `/api/bills/upload`, and `/api/agent/stream/:id`.
+
+After deployment, open the Render service URL and check:
+
+```text
+https://your-render-service.onrender.com/api/health
+```
+
+Expected response includes `status: "ok"`, `database: "sqlite3"`, and `hasGeminiKey: true` if the key is configured.
+
+Free Render limitations:
+
+- The service sleeps after inactivity.
+- The first request after sleep can be slow.
+- Local SQLite data may be lost on redeploy or restart.
+- This setup is suitable for a demo or hackathon, not production financial data.
+- For production use, add persistent storage, authentication, rate limiting, secret management, and a real managed database.
+
 ### GitHub Pages deployment
 
 GitHub Pages serves static files only. The repository includes `.github/workflows/deploy-pages.yml`, which runs `npm ci`, builds only the Vite frontend, and deploys `dist/` whenever `main` changes. Vite automatically uses `/<repository-name>/` as the Pages base path, so the browser loads built assets instead of requesting `/src/main.tsx`.

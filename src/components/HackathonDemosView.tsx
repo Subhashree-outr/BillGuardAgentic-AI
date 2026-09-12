@@ -78,11 +78,11 @@ export const HackathonDemosView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       {/* Header card */}
-      <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-6">
+      <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold mb-2">
               <Sparkles className="w-3.5 h-3.5" /> Hackathon Demonstration Suite
             </div>
@@ -97,7 +97,7 @@ export const HackathonDemosView: React.FC = () => {
           <button
             type="button"
             onClick={handleResetData}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 bg-[#27272A] hover:bg-[#3F3F46] text-[#FAFAFA] rounded-xl transition-all"
+            className="inline-flex w-full items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 bg-[#27272A] hover:bg-[#3F3F46] text-[#FAFAFA] rounded-xl transition-all sm:w-auto"
           >
             <RotateCcw className="w-3.5 h-3.5" /> Reset Synthetic Ledger
           </button>
@@ -118,7 +118,7 @@ export const HackathonDemosView: React.FC = () => {
           return (
             <div
               key={sc.id}
-              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
+              className={`min-w-0 p-4 sm:p-5 rounded-2xl border transition-all flex flex-col justify-between ${
                 isSelected
                   ? 'bg-blue-600/10 border-blue-500 shadow-md shadow-blue-500/10'
                   : 'bg-[#18181B] border-[#27272A] hover:border-[#3F3F46]'
@@ -157,13 +157,13 @@ export const HackathonDemosView: React.FC = () => {
 
       {/* Execution Results View */}
       {result && result.state && (
-        <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-6 space-y-6">
+        <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-6 space-y-5 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#27272A] pb-4">
-            <div>
+            <div className="min-w-0">
               <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
                 Scenario Result Output
               </span>
-              <h4 className="text-base font-bold text-[#FAFAFA] mt-0.5">{result.scenario}</h4>
+              <h4 className="text-base font-bold text-[#FAFAFA] mt-0.5 break-words">{result.scenario}</h4>
             </div>
 
             <div className="flex items-center gap-2">
@@ -174,10 +174,10 @@ export const HackathonDemosView: React.FC = () => {
           </div>
 
           {/* Key Findings from Scenario */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Identified Savings</span>
-              <p className="text-xl font-bold text-emerald-400 mt-1">
+              <p className="text-lg sm:text-xl font-bold text-emerald-400 mt-1 break-words">
                 ₹{result.state.evaluation.projected_savings.toLocaleString()}/mo
               </p>
               <span className="text-[10px] text-[#A1A1AA]">
@@ -185,9 +185,9 @@ export const HackathonDemosView: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4">
+            <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Replanning Engine</span>
-              <p className="text-xl font-bold text-[#FAFAFA] mt-1">
+              <p className="text-lg sm:text-xl font-bold text-[#FAFAFA] mt-1">
                 {result.state.replanning_status?.is_replanning ? 'Replan Triggered' : 'Direct Plan'}
               </p>
               <span className="text-[10px] text-purple-400">
@@ -195,9 +195,9 @@ export const HackathonDemosView: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-[#09090B] border border-[#27272A] rounded-xl p-4">
+            <div className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3 sm:p-4">
               <span className="text-[10px] text-[#71717A] uppercase font-bold tracking-wider">Errors & Fallbacks</span>
-              <p className="text-xl font-bold text-[#FAFAFA] mt-1">
+              <p className="text-lg sm:text-xl font-bold text-[#FAFAFA] mt-1">
                 {result.state.errors.length > 0 ? `${result.state.errors.length} Handled` : 'Zero Errors'}
               </p>
               <span className="text-[10px] text-[#A1A1AA]">
@@ -215,11 +215,11 @@ export const HackathonDemosView: React.FC = () => {
               {result.state.actions.map((a: any) => (
                 <div
                   key={a.id}
-                  className="bg-[#09090B] border border-[#27272A] rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs"
+                  className="min-w-0 bg-[#09090B] border border-[#27272A] rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <span className="font-bold text-[#FAFAFA]">{a.target_merchant}: </span>
-                    <span className="text-[#D4D4D8]">{a.description}</span>
+                    <span className="text-[#D4D4D8] break-words">{a.description}</span>
                   </div>
                   <span className="font-bold text-emerald-400 shrink-0">+₹{a.estimated_saving.toFixed(2)}/mo</span>
                 </div>

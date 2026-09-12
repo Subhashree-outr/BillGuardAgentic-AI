@@ -93,10 +93,10 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
   };
 
   return (
-    <div className="bg-[#18181B] border border-[#27272A] rounded-2xl p-4 sm:p-5">
+    <div className="min-w-0 bg-[#18181B] border border-[#27272A] rounded-2xl p-3 sm:p-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <h2 className="text-[#A1A1AA] text-xs uppercase tracking-wider font-bold">
               Detected Findings
@@ -111,7 +111,7 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
         </div>
 
         {/* Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setActiveFilter('all')}
@@ -197,16 +197,16 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
             return (
               <div
                 key={finding.id || idx}
-                className="p-4 sm:p-5 bg-[#09090B] border border-[#27272A] rounded-2xl hover:border-zinc-700 transition-all"
+                className="min-w-0 p-3 sm:p-5 bg-[#09090B] border border-[#27272A] rounded-2xl hover:border-zinc-700 transition-all"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="flex gap-4 items-start flex-1">
+                  <div className="flex min-w-0 gap-3 sm:gap-4 items-start flex-1">
                     {/* Bento Type Icon Tile */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shrink-0 text-sm ${meta.iconBg}`}>
                       {meta.symbol}
                     </div>
 
-                    <div className="space-y-1.5 flex-1">
+                    <div className="min-w-0 space-y-1.5 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-[#A1A1AA]">
                           {meta.label}
@@ -229,11 +229,11 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
                         )}
                       </div>
 
-                      <div className="font-semibold text-base text-[#FAFAFA]">
+                      <div className="font-semibold text-sm sm:text-base text-[#FAFAFA] break-words">
                         {finding.title || `${finding.merchant} - $${amountNum}`}
                       </div>
 
-                      <div className="text-xs text-[#A1A1AA] leading-relaxed">
+                      <div className="text-xs text-[#A1A1AA] leading-relaxed break-words">
                         {finding.explanation}
                       </div>
 
@@ -246,7 +246,7 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
 
                       {/* Evidence Box */}
                       {finding.evidence && (
-                        <div className="mt-2 text-[11px] bg-[#18181B] rounded-xl p-3 border border-[#27272A] text-[#A1A1AA] font-mono overflow-x-auto">
+                        <div className="mt-2 max-w-full text-[11px] bg-[#18181B] rounded-xl p-3 border border-[#27272A] text-[#A1A1AA] font-mono overflow-x-auto">
                           <span className="font-bold text-[#71717A] uppercase tracking-wider block text-[10px] mb-1">
                             Verified Source Evidence:
                           </span>
@@ -283,7 +283,7 @@ export const FindingsList: React.FC<FindingsListProps> = ({ findings, onInspectT
                   </div>
 
                   {/* Right Side Amount & Metrics */}
-                  <div className="sm:text-right shrink-0 pt-1 sm:pt-0 border-t sm:border-t-0 border-[#27272A]">
+                  <div className="sm:text-right sm:shrink-0 pt-3 sm:pt-0 border-t sm:border-t-0 border-[#27272A]">
                     <div className={`text-xl sm:text-2xl font-bold ${meta.amountColor}`}>
                       ${amountNum}
                     </div>

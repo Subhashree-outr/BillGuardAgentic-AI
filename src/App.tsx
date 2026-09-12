@@ -135,26 +135,26 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-[#FAFAFA] flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen min-w-0 w-full overflow-x-hidden bg-[#09090B] text-[#FAFAFA] flex flex-col font-sans selection:bg-blue-600 selection:text-white">
       <Header
         currentTab={currentTab}
         onSelectTab={setCurrentTab}
         engine={engine}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-4 sm:space-y-6">
         {/* Error Alert */}
         {error && (
-          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-4 flex items-start gap-3 text-red-300">
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-start gap-3 text-red-300">
             <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <h4 className="text-sm font-semibold text-red-200">Analysis Incident</h4>
               <p className="text-xs text-red-300/90 mt-0.5">{error}</p>
             </div>
             <button
               type="button"
               onClick={() => handleAnalyze()}
-              className="text-xs font-semibold text-white flex items-center gap-1.5 bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+              className="w-full sm:w-auto text-xs font-semibold text-white flex items-center justify-center gap-1.5 bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
             >
               <RefreshCw className="w-3 h-3" /> Retry
             </button>
@@ -188,13 +188,13 @@ export default function App() {
                 <SummaryMetrics summary={report.summary} userMessage={report.user_message} />
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                  <div className="lg:col-span-7">
+                  <div className="min-w-0 lg:col-span-7">
                     <FindingsList
                       findings={report.findings || []}
                       onInspectTrace={(finding) => setInspectingFinding(finding)}
                     />
                   </div>
-                  <div className="lg:col-span-5">
+                  <div className="min-w-0 lg:col-span-5">
                     <ActionPlanView
                       actionPlan={report.action_plan || []}
                       onReviewApproval={(item) => setApprovingAction(item)}
@@ -260,15 +260,15 @@ export default function App() {
 
       <ChatPanel apiKey={sessionApiKey} onNotify={(message) => setNotice({ message, tone: 'warning' })} />
 
-      <footer className="border-t border-[#27272A] bg-[#09090B] py-5 mt-10 text-center text-xs text-[#71717A]">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+      <footer className="border-t border-[#27272A] bg-[#09090B] py-5 mt-8 sm:mt-10 text-center text-xs text-[#71717A]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 flex min-w-0 flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center justify-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500" />
-            <span className="font-medium text-[#A1A1AA]">
+            <span className="font-medium text-[#A1A1AA] break-words">
               BillGuard &bull; Agentic AI Financial Auditor
             </span>
           </div>
-          <p>
+          <p className="max-w-full break-words">
             Autonomous Anomaly Detection &bull; Grounded Evidence &bull; Human-in-the-Loop Safety &bull; SQLite Persistence
           </p>
         </div>
