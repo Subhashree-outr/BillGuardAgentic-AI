@@ -20,62 +20,6 @@ Typical findings include:
 
 BillGuard creates recommendations such as dispute a charge, cancel a subscription, downgrade a plan, or set a budget cap. It does not automatically cancel services, request refunds, or move money.
 
-## Screenshots
-
-### Dashboard
-
-![BillGuard dashboard](screenshots/dashboard.png)
-
-The main audit view with billing input, agent pipeline, summary metrics, findings, and recommended actions.
-
-### Bills and Invoices
-
-![Bills and invoices](screenshots/bills.png)
-
-Uploaded bill records and structured extraction results.
-
-### Transactions
-
-![Transactions](screenshots/transactions%20log.png)
-
-Transaction ledger used for duplicate-charge and spending analysis.
-
-### Subscriptions
-
-![Subscriptions](screenshots/subscriptions%20log.png)
-
-Recurring services, dormant subscriptions, price increases, and overlapping plans.
-
-### AI Goal Mode
-
-![AI Goal Mode](screenshots/ai%20goal%20mode.png)
-
-Goal-driven agent execution with savings targets, constraints, and approval-gated actions.
-
-### Agent Activity
-
-![Agent activity](screenshots/agent%20activity%20log.png)
-
-Persisted agent events, tool calls, decisions, fallback handling, and replanning.
-
-### Demo Scenarios
-
-![Demo scenarios](screenshots/demo%20scenarios.png)
-
-Hackathon scenarios for anomaly detection, tool failure recovery, constraints, and replanning.
-
-### Session-only API Key Settings
-
-![Session-only API key settings](screenshots/session-only%20api%20key%20setup.png)
-
-Bring-your-own-key settings with masked status, connection testing, and removal controls.
-
-### Session Key and Chat
-
-![Session-only API key and chatbot](screenshots/session-only%20api%20key%20%2B%20chatbot.png)
-
-Chat using a session-only Gemini key without storing the credential in the application database.
-
 ## Technology
 
 | Area | Technology |
